@@ -227,7 +227,7 @@ class ProcessCloudNode:
 
         # subscriber and publisher
         if self.use_sim == False:
-            print("Running real-world experiments...")
+            print("yjm,ufdmyhuRunning real-world experiments...")
             time.sleep(1)
             #  self.segmented_pc_sub = message_filters.Subscriber(
                 #  "/os_node/segmented_point_cloud_no_destagger/throttled", PointCloud2)

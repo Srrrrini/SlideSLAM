@@ -61,7 +61,12 @@ tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shap
 tmux select-pane -t $SESSION_NAME:1.4
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true; rosbag play ugv_yolo_duplicated.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /depth_ugv /depth_ugv1 /rgb_ugv /depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /rgb_ugv:=/robot0/camera/color/image_raw /depth_ugv1:=/robot0/camera/depth/image_rect_raw" Enter
 
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true; rosbag play test.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /camera_front/depth_ugv depth_ugv1 /camera_front/rgb_ugv /camera_front/depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /camera_front/rgb_ugv:=/robot0/camera/color/image_raw depth_ugv1:=/robot0/camera/depth/image_rect_raw" Enter
+tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /spot/odom /ouster/points /spot_image" Enter
+
+# Add lidar_cam_calibrater node
+tmux split-window -h -t $SESSION_NAME
+tmux select-pane -t $SESSION_NAME:1.5
+tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true;rosrun topic_tools relay /robot0/camera/aligned_depth_to_color/image_raw /robot0/camera/depth/image_rect_raw & sleep 0; rosbag play sim_ugv.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /camera_front/depth_ugv /camera_front/rgb_ugv /camera_front/depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /camera_front/rgb_ugv:=/robot0/camera/color/image_raw" Enter
 
 

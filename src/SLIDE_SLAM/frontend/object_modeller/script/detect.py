@@ -169,7 +169,7 @@ class sem_detection:
         x_pt = x_pt[..., None]
         y_pt = y_pt[..., None]
         z_pt = z_pt[..., None]
-        print("dafhbArtgn",x,y,z)
+        print("xxxxdafhbArtgn",x,y,z)
         points = np.concatenate((x_pt, y_pt, z_pt), axis=2)
         # 5. Stack labels, id, conf
         

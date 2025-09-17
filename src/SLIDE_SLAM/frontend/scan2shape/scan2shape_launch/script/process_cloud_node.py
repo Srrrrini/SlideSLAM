@@ -173,7 +173,7 @@ class ProcessCloudNode:
 
         # subscriber and publisher
         if self.use_sim == False:
-            rospy.loginfo("Running real-world experiments...")
+            rospy.loginfo("dumgytjRunning real-world experiments...")
             time.sleep(1)
 
             self.segmented_pc_sub = rospy.Subscriber(
@@ -231,13 +231,16 @@ class ProcessCloudNode:
         pc_xyzi_id_conf[:, 4] = ids
         pc_xyzi_id_conf[:, 5] = confs
 
+        print(self.valid_range_threshold)
+        # print(pc_xyzi_id_conf)
         # threshold by range. Remove points that are farther away than self.valid_range_threshold
         valid_indices = threshold_by_range(
             self.valid_range_threshold, pc_xyzi_id_conf)
 
         if np.sum(valid_indices) == 0:
+            print("sfgveatfbhtgrb")
             rospy.logwarn(
-                "No valid points found after range thresholding. Skipping this scan!!! Make sure the self.valid_range_threshold is set correctly.")
+                "ryjwanbNo valid points found after range thresholding. Skipping this scan!!! Make sure the self.valid_range_threshold is set correctly.")
             return
 
         # apply thresholding
@@ -260,12 +263,15 @@ class ProcessCloudNode:
         else:
             for cur_object_class in self.cls.keys():
                 # skip background if present
+                print("cur_object_class", cur_object_class)
                 if cur_object_class == "background":
                     continue
                 cur_class_label = self.cls[cur_object_class]
+                print("cur_class_label", cur_class_label)
+                print("points_world_xyzi_id_conf_depth", points_world_xyzi_id_conf_depth[:, 3])
                 pc_world_cur_class = points_world_xyzi_id_conf_depth[
                     points_world_xyzi_id_conf_depth[:, 3] == cur_class_label, :]
-
+                print("pc_world_cur_class", pc_world_cur_class)
                 # find object instances
                 if pc_world_cur_class.shape[0] == 0:
                     continue
@@ -277,11 +283,11 @@ class ProcessCloudNode:
                 # N*4 objects, first two columns are x and y coordinates, third column is length (x-range), and fourth colum is width (y-range)
                 cur_objects = np.transpose(
                     np.asarray([xcs, ycs, lengths, widths]))
-
+                print("cur_objects", cur_objects)
                 if cur_objects.shape[0] != 0:
                     self.all_objects, self.all_tracks = track_objects_indoor(self, cur_class_label, cur_object_class,
                                                                              cur_objects, self.all_objects, self.all_tracks, self.processed_scan_idx, copy.deepcopy(raw_points), self.downsample_res, self.num_instance_point_lim)
-
+                    print("self.all_tracks", self.all_tracks)
                     # TODO(ankit): Maybe use age_threshold parameter here
                     publish_markers(self, self.all_tracks, cur_cls_name=cur_object_class,
                                     age_threshold=self.tracker_age_thresh_lower)
@@ -341,6 +347,6 @@ if __name__ == '__main__':
     process_cloud_node = ProcessCloudNode(node_name)
 
     while not rospy.is_shutdown():
-        print("node started!")
+        print("sfghbdnode started!")
         rospy.spin()
     print("node killed!")

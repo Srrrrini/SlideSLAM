@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Lidar-Camera Calibrator Node -->
+  <node pkg="lidar_cam_calibrater" type="register_node" name="register_node" output="screen">
+    <!-- Topic name parameters - you can change these to customize topic names -->
+    <param name="spot_image_topic" value="/spot_image" />
+    <param name="test_sub_image_topic" value="/test_sub_image" />
+    <param name="registered_color_topic" value="/camera_front/processed_rgb" />
+    <param name="registered_depth_topic" value="/camera_front/depth_ugv" />
+    <param name="depth_ugv1_topic" value="/depth_ugv1" />
+    <param name="rgb_ugv_topic" value="/camera_front/rgb_ugv" />
+    <param name="spot_odom_topic" value="/spot/odom" />
+    <param name="odom_ugv_topic" value="/odom_ugv" />
+    
+    <!-- Other parameters -->
+    <param name="lidar_topic" value="/ouster/points" />
+  </node>
+</launch>

@@ -193,7 +193,7 @@ class ProcessCloudNode:
 
         # SUBSCRIBERS
         if self.use_sim == False:
-            rospy.loginfo("Running real-world experiments...")
+            rospy.loginfo("drumyhgtRunning real-world experiments...")
             time.sleep(1)
 
             self.segmented_pc_sub = rospy.Subscriber(
@@ -254,7 +254,7 @@ class ProcessCloudNode:
 
         if np.sum(valid_indices) == 0:
             rospy.logwarn(
-                "No valid points found after range thresholding. Skipping this scan!!! Make sure the self.valid_range_threshold is set correctly.")
+                "dgbzbgtydhfNo valid points found after range thresholding. Skipping this scan!!! Make sure the self.valid_range_threshold is set correctly.")
             return
 
         # apply range thresholding

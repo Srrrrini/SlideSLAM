@@ -21,3 +21,10 @@ docker run -it \
     # --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     # --volume="/home/$USER/repos:/home/$USER/repos" \
 
+# First, find your current container ID
+docker ps -a
+
+
+docker commit 472b021e921a slideslam:latest
+
+docker images

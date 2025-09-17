@@ -14,6 +14,7 @@ import yaml
 
 bridge = CvBridge()
 
+
 # observation 1: in the bag file, color and depth images can go out of sync
 # observation 2: might be able to use aligned depth?
 
@@ -73,6 +74,7 @@ class sem_detection:
 
         self.pc_pub_ = rospy.Publisher(self.pc_topic, PointCloud2, queue_size=1)
         self.synced_pc_pub_ = rospy.Publisher(self.sync_pc_odom_topic, syncPcOdom, queue_size=1)
+        self.detection_image_pub = rospy.Publisher('/sem_detection/detections_image', Image, queue_size=1)
 
 
         # Synchronize the two image topics with a time delay of 0.1 seconds
@@ -122,7 +124,7 @@ class sem_detection:
         # 1. detect semantics
         # Perform instance segmentation using YOLOv8
         # TODO(ankit): Edited this
-        detections = self.yolo.predict(color_img,  show=False)
+        detections = self.yolo.predict(color_img,  show=False, device='cpu')
 
         # 2. open img_size * 2 array save class and id
         # pc_pos = np.zeros([color_img.shape[0], color_img.shape[1], 3])
@@ -152,7 +154,16 @@ class sem_detection:
                     print(cls_str)
                     id[mask_pos] = i+1
                     conf[mask_pos] = float(detection.boxes.conf[i])
+        # 2. Overlay bounding boxes and publish the image
+        annotated_img = detections[0].plot()
 
+        # Convert the annotated image back to a ROS Image message
+        try:
+            annotated_img_msg = bridge.cv2_to_imgmsg(annotated_img, "bgr8")
+            annotated_img_msg.header = rgb.header
+            self.detection_image_pub.publish(annotated_img_msg)
+        except Exception as e:
+            rospy.logerr("Error converting image for publishing: %s", e)
         # Create a grid of pixel coordinates
         u, v = np.meshgrid(np.arange(depth_img.shape[1]), np.arange(depth_img.shape[0]))
         u = u.astype(np.float32)
@@ -223,7 +234,7 @@ class sem_detection:
         
         # 1. detect semantics
         # Perform instance segmentation using YOLOv8
-        detections = self.yolo.predict(color_img,  show=False)
+        detections = self.yolo.predict(color_img,  show=False, device='cpu')
 
         # 2. open img_size * 2 array save class and id
         label = np.zeros([color_img.shape[0], color_img.shape[1]])
