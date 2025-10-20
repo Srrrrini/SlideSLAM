@@ -49,6 +49,7 @@ class ProcessCloudNode:
             self.cls_data_all[cls_name]["length_cutoff"]) for cls_name in self.cls_data_all.keys()}
         self.height_cutoffs = {cls_name: tuple(
             self.cls_data_all[cls_name]["height_cutoff"]) for cls_name in self.cls_data_all.keys()}
+        
 
         self.class_color = {cls_name: tuple(
             self.cls_data_all[cls_name]["color"]) for cls_name in self.cls_data_all.keys()}
@@ -249,7 +250,8 @@ class ProcessCloudNode:
         # Use odometry and transform point cloud to world frame and then publish it
         points_world_xyzi_id_conf_depth, points_body_xyzi_id_conf = transform_publish_pc(self,
                                                                                          current_raw_timestamp, pc_xyzi_id_conf_thresholded)
-
+        # print("points_world_xyzi_id_conf_depth", points_world_xyzi_id_conf_depth)
+        # print("points_body_xyzi_id_conf", points_body_xyzi_id_conf)
         if points_world_xyzi_id_conf_depth is None or points_body_xyzi_id_conf is None:
             rospy.logwarn(
                 "Failed to transform point cloud to world frame. Skipping this scan!!!")
@@ -261,19 +263,24 @@ class ProcessCloudNode:
                 "It may also be caused by excessive CPU load, play bag with slower rate")
 
         else:
+            i =0
             for cur_object_class in self.cls.keys():
+                i += 1
+                print("i", i)
                 # skip background if present
-                print("cur_object_class", cur_object_class)
+                # print("cur_object_class", cur_object_class)
                 if cur_object_class == "background":
                     continue
                 cur_class_label = self.cls[cur_object_class]
-                print("cur_class_label", cur_class_label)
-                print("points_world_xyzi_id_conf_depth", points_world_xyzi_id_conf_depth[:, 3])
+                # print("cur_class_label", cur_class_label)
+                # print("points_world_xyzi_id_conf_depth", points_world_xyzi_id_conf_depth[:, 3])
                 pc_world_cur_class = points_world_xyzi_id_conf_depth[
                     points_world_xyzi_id_conf_depth[:, 3] == cur_class_label, :]
-                print("pc_world_cur_class", pc_world_cur_class)
+                # print("pc_world_cur_class", pc_world_cur_class)
+                print(points_world_xyzi_id_conf_depth[:, 3] == cur_class_label)
                 # find object instances
                 if pc_world_cur_class.shape[0] == 0:
+                    print("skipping this class")
                     continue
 
                 # Fit cuboids to the semantic instances to start the tracking process
@@ -283,11 +290,12 @@ class ProcessCloudNode:
                 # N*4 objects, first two columns are x and y coordinates, third column is length (x-range), and fourth colum is width (y-range)
                 cur_objects = np.transpose(
                     np.asarray([xcs, ycs, lengths, widths]))
-                print("cur_objects", cur_objects)
+                print("1234567890cur_objects", cur_objects)
                 if cur_objects.shape[0] != 0:
+                    print("tracking objects")
                     self.all_objects, self.all_tracks = track_objects_indoor(self, cur_class_label, cur_object_class,
                                                                              cur_objects, self.all_objects, self.all_tracks, self.processed_scan_idx, copy.deepcopy(raw_points), self.downsample_res, self.num_instance_point_lim)
-                    print("self.all_tracks", self.all_tracks)
+                    print("publishing self.all_tracks", self.all_tracks)
                     # TODO(ankit): Maybe use age_threshold parameter here
                     publish_markers(self, self.all_tracks, cur_cls_name=cur_object_class,
                                     age_threshold=self.tracker_age_thresh_lower)
@@ -309,13 +317,15 @@ class ProcessCloudNode:
                     del self.all_objects[idx]
 
             # Publishing segmented, tracked, and accumulated instance point cloud
+            print("self.all_tracks", self.all_tracks)
             extracted_instances_xyzl, instance_global_ids = generate_publish_instance_cloud_indoor(self,
-                                                                                                   current_raw_timestamp)
-
+                                                                                              current_raw_timestamp)
+            # print("extracted_instances_xyzl", extracted_instances_xyzl)
             if extracted_instances_xyzl is not None:
                 cuboids, cuboid_clus_centroids = cuboid_detection_indoor(self,
                                                                          extracted_instances_xyzl, instance_global_ids)
 
+                print(len(cuboids))
                 if len(cuboids) > 0:
 
                     if (self.prev_acc_obj_pub_time is not None) and ((rospy.Time.now() - self.prev_acc_obj_pub_time).to_sec() < 1.0/self.desired_acc_obj_pub_rate):

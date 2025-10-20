@@ -2,11 +2,11 @@
 
 
 SESSION_NAME=slide_slam_nodes
-BAG_PLAY_RATE=0.5
+BAG_PLAY_RATE=0.8
 #BAG_DIR='/home/sam/bags/vems-slam-bags/all_slide_slam_public_demos/forests'
 # BAG_DIR='/opt/bags/vems-slam-bags/all_slide_slam_public_demos/forests'
 # BAG_DIR='/home/sam/bags/vems-slam-bags/all_slide_slam_public_demos/indoor'
-BAG_DIR='/opt/bags/vems-slam-bags/all_slide_slam_public_demos/outdoor'
+BAG_DIR='/opt/bags/indoor'
 
 CURRENT_DISPLAY=${DISPLAY}
 if [ -z ${DISPLAY} ];
@@ -47,7 +47,7 @@ tmux split-window -h -t $SESSION_NAME
 # tmux select-pane -t $SESSION_NAME:1.6
 # tmux split-window -h -t $SESSION_NAME
 tmux select-pane -t $SESSION_NAME:1.0
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch infer_node.launch" Enter
+# tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; CUDA_VISIBLE_DEVICES="" roslaunch scan2shape_launch infer_node.launch" Enter
 tmux select-pane -t $SESSION_NAME:1.1
 tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/Odometry" Enter
 tmux select-pane -t $SESSION_NAME:1.2
@@ -57,7 +57,8 @@ tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shap
 tmux select-pane -t $SESSION_NAME:1.4
 tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch run_flio_with_driver.launch" Enter
 tmux select-pane -t $SESSION_NAME:1.5
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 10; cd $BAG_DIR && rosbag play outdoor-falcon4*.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /os_node/lidar_packets /os_node/imu_packets /os_node/metadata" Enter
+# tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play outdoor-falcon4*.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /os_node/lidar_packets /os_node/imu_packets /os_node/metadata" Enter
+tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points " Enter
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play robot4*.bag -r $BAG_PLAY_RATE --topics /Odometry /robot0/semantic_meas_sync_odom /Odometry:=/robot4/odom /robot0/semantic_meas_sync_odom:=/robot4/semantic_meas_sync_odom" Enter
 # tmux select-pane -t $SESSION_NAME:1.5
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play robot5*.bag -r $BAG_PLAY_RATE --topics /Odometry /robot0/semantic_meas_sync_odom /Odometry:=/robot5/odom /robot0/semantic_meas_sync_odom:=/robot5/semantic_meas_sync_odom" Enter

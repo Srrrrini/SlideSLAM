@@ -100,7 +100,7 @@ void RegisterRGBD::SyncLidar2RGB( const sensor_msgs::PointCloud2::ConstPtr& lida
     W_img = stiched_image_msg->width;
     // this->pixel2Lidar.clear();
     // this->pixel2Lidar.resize(H_img*W_img, std::vector<Eigen::Vector3d>());
-
+    ROS_INFO("Cylindrical Params Being Used: W_img=%.2f, f_y=%.4f, y_0=%.2f", W_img, f_y, y_0);
     sensor_msgs::PointCloud2ConstIterator<float> lidar_iter(*lidar_pointcloud_msg, "x");
     double max_z = 0.;
     for ( ;  lidar_iter != lidar_iter.end(); ++lidar_iter ) 

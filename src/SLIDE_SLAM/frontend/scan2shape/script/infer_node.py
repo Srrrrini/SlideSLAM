@@ -59,14 +59,15 @@ class Inference:
 
         # Set model cuda parameters
         self.gpu_ = False
-        if torch.cuda.is_available() and torch.cuda.device_count() > 0 and \
-                rospy.get_param("gpu", default=True):
-            cudnn.benchmark = True
-            cudnn.fastest = True
-            self.gpu_ = True
-            self.model_.cuda()
-        else:
-            self.model_.cpu()
+        # if torch.cuda.is_available() and torch.cuda.device_count() > 0 and \
+        #         rospy.get_param("gpu", default=True):
+        #     cudnn.benchmark = True
+        #     cudnn.fastest = True
+        #     self.gpu_ = True
+        #     self.model_.cuda()
+        # else:
+        #     self.model_.cpu()
+        self.model_.cpu()
 
         # Push model into eval mode
         self.model_.eval()

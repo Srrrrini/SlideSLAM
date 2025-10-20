@@ -24,6 +24,15 @@ car:
   length_cutoff: [0.5, 7.5]
   width_cutoff: [0.5, 7.5]
   height_cutoff: [0.2, 4.0]
+chair:
+  id: 1
+  model: cuboid
+  track_assignment_threshold: 1.0
+  track_age_threshold: 0.1
+  clustering_params: [0.5, 10]
+  length_cutoff: [0.1, 7.5]
+  width_cutoff: [0.1, 7.5]
+  height_cutoff: [0.1, 4.0]
 tree:
   id: 71
   model: cylinder

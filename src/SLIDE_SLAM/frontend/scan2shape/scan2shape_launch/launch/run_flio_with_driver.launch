@@ -17,7 +17,7 @@
         <arg name="metadata" value="" />
     </include>
 
-    <include file="$(find faster_lio)/launch/mapping_ouster64.launch"></include>
+    <include file="$(find faster_lio)/launch/mapping_ouster128.launch"></include>
 
     <!-- <include file="$(find scan2shape_launch)/launch/llol_robot_ns.launch"></include> -->
 

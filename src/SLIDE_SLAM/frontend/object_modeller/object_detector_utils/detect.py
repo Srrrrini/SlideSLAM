@@ -49,6 +49,16 @@ class sem_detection:
         self.confidence_threshold = rospy.get_param('~confidence_threshold', 0.4)
         ##################################### PARAMS / CONFIG #####################################
 
+        # -----------------------------------------------------------------
+        # Define the parameters for the cylindrical camera model.
+        # Use the actual values from your sensor calibration.
+        self.W_img = 1280.0  # Total width of the panorama image
+        self.f_c = 219.4734627    
+        self.y_c_0 = 375.0  
+        # -----------------------------------------------------------------
+
+
+
         print("Depth scale: ", self.depth_scale)
         print("fx: ", self.color_fx)
         print("fy: ", self.color_fy)
@@ -165,23 +175,66 @@ class sem_detection:
         except Exception as e:
             rospy.logerr("Error converting image for publishing: %s", e)
         # Create a grid of pixel coordinates
-        u, v = np.meshgrid(np.arange(depth_img.shape[1]), np.arange(depth_img.shape[0]))
-        u = u.astype(np.float32)
-        v = v.astype(np.float32)
-        d = depth_img.flatten()
-        d = d * self.depth_scale
-        x = (u.flatten() - self.color_cx) * d / self.color_fx
-        y = (v.flatten() - self.color_cy) * d / self.color_fy
-        z = d
+        # ------------- old pinhole cam 3d reconstruction --------------------------
+        # u, v = np.meshgrid(np.arange(depth_img.shape[1]), np.arange(depth_img.shape[0]))
+        # u = u.astype(np.float32)
+        # v = v.astype(np.float32)
+        # d = depth_img.flatten()
+        # d = d * self.depth_scale
+        # x = (u.flatten() - self.color_cx) * d / self.color_fx
+        # y = (v.flatten() - self.color_cy) * d / self.color_fy
+        # z = d
 
-        x_pt = x.reshape(-1, depth_img.shape[1])
-        y_pt = y.reshape(-1, depth_img.shape[1])
-        z_pt = z.reshape(-1, depth_img.shape[1])
+        # x_pt = x.reshape(-1, depth_img.shape[1])
+        # y_pt = y.reshape(-1, depth_img.shape[1])
+        # z_pt = z.reshape(-1, depth_img.shape[1])
+        # x_pt = x_pt[..., None]
+        # y_pt = y_pt[..., None]
+        # z_pt = z_pt[..., None]
+        # print("dafhbArtgn",x,y,z)
+        # points = np.concatenate((x_pt, y_pt, z_pt), axis=2)
+        # ------------- old pinhole cam 3d reconstruction --------------------------
+
+
+
+
+        # ------------- New lidar depth 3D reconstruction --------------------------
+# --- START: Cylindrical 3D Reconstruction Code ---
+        # NOTE: Ensure self.W_img, self.f_c, and self.y_c_0 are defined.
+
+        # Create a grid of pixel coordinates
+        u, v = np.meshgrid(np.arange(depth_img.shape[1]), np.arange(depth_img.shape[0]))
+        u_flat = u.flatten().astype(np.float32)
+        v_flat = v.flatten().astype(np.float32)
+
+        # The depth value 'd' is the radial distance in the XZ plane
+        radial_distance = depth_img.flatten() * self.depth_scale
+
+        # Calculate the horizontal angle (azimuth) from the u-coordinate
+        azimuth = (u_flat * 2 * np.pi / self.W_img) - np.pi
+
+        # Calculate X, Y, Z coordinates using the inverse cylindrical projection.
+        # Note: We calculate flattened 1D arrays first, like in your original code.
+        x = radial_distance * np.sin(azimuth)
+        z = radial_distance * np.cos(azimuth)  # Z is now dependent on the angle
+        y = 1*(v_flat - self.y_c_0) * radial_distance / self.f_c
+
+        # Reshape X, Y, Z back into the image dimensions
+        x_pt = x.reshape(depth_img.shape)
+        y_pt = y.reshape(depth_img.shape)
+        z_pt = z.reshape(depth_img.shape)
+
+        # Add a new axis to each for stacking into a (H, W, 3) point cloud
         x_pt = x_pt[..., None]
         y_pt = y_pt[..., None]
         z_pt = z_pt[..., None]
-        print("dafhbArtgn",x,y,z)
+
+        # Concatenate to create the final point cloud
         points = np.concatenate((x_pt, y_pt, z_pt), axis=2)
+        # --- END: Cylindrical 3D Reconstruction Code ---
+
+        # ------------- New lidar depth 3D reconstruction --------------------------
+
         # 5. Stack labels, id, conf
         
         label = label[..., None]

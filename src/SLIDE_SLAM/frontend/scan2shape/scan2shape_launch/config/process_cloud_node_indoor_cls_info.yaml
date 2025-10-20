@@ -12,7 +12,7 @@ chair:
   id: 1
   color: [1.0, 0.0, 0.0] # Red Chair
   length_cutoff: [0.2, 6.0]
-  height_cutoff: [0.2, 6.0]
+  height_cutoff: [0, 6.0]
   mesh_model_path: "package://sloam/resource/chair.stl"
   mesh_model_scale: 1
   class_assignment_thresh: 0.75

@@ -220,13 +220,74 @@ class ProcessCloudNode:
         self.segmented_synced_pc_cb(seg_cloud_msg)
 
     def segmented_synced_pc_cb(self, segmented_cloud_msg):
+
+        # DEBUGGING CODE
+        rospy.loginfo("--- PointCloud2 Message Debug ---")
+        rospy.loginfo(f"Header: {segmented_cloud_msg.header}")
+        rospy.loginfo(f"Height: {segmented_cloud_msg.height}, Width: {segmented_cloud_msg.width}")
+        rospy.loginfo(f"Fields: {segmented_cloud_msg.fields}")
+        rospy.loginfo(f"Point Step (bytes per point): {segmented_cloud_msg.point_step}") 
+        rospy.loginfo(f"Row Step (bytes per row): {segmented_cloud_msg.row_step}")
+        rospy.loginfo(f"Data array length (bytes): {len(segmented_cloud_msg.data)}")
+        rospy.loginfo("---------------------------------") 
+        # END OF DEBUGGING CODE
         rospy.loginfo_throttle(
             7, "Segmented point cloud received. Executing callback...")
 
         self.processed_scan_idx += 1
         current_raw_timestamp = segmented_cloud_msg.header.stamp
         # create pc from the undistorted_cloud
-        segmented_pc = ros_numpy.numpify(segmented_cloud_msg)
+        # --- START: PATCH FOR MALFORMED POINTCLOUD2 MESSAGE ---
+        try:
+            # First, try to convert the message normally. This will fail if the message is malformed.
+            segmented_pc = ros_numpy.numpify(segmented_cloud_msg)
+
+        except ValueError as e:
+            # If it fails, it's because the metadata (width) doesn't match the data buffer size.
+            rospy.logwarn(f"Caught ValueError: '{e}'. Applying patch for malformed PointCloud2 message.")
+            
+            # Create a mutable copy of the message to correct its metadata.
+            msg_copy = PointCloud2()
+            msg_copy.header = segmented_cloud_msg.header
+            msg_copy.height = 1  # Treat it as an unordered cloud
+            msg_copy.fields = segmented_cloud_msg.fields
+            msg_copy.is_bigendian = segmented_cloud_msg.is_bigendian
+            msg_copy.point_step = segmented_cloud_msg.point_step
+            msg_copy.is_dense = segmented_cloud_msg.is_dense
+            msg_copy.data = segmented_cloud_msg.data
+
+            # === THE CORE FIX IS HERE ===
+            # Recalculate the correct width based on the actual data buffer size.
+            correct_width = len(msg_copy.data) // msg_copy.point_step
+            msg_copy.width = correct_width
+            msg_copy.row_step = msg_copy.point_step * msg_copy.width
+            
+            rospy.logwarn(f"Corrected message metadata: width={msg_copy.width}, row_step={msg_copy.row_step}")
+
+            # Now, numpify the *corrected* message. This will succeed.
+            # It will produce a 1D array with a variable number of points.
+            segmented_pc_variable = ros_numpy.numpify(msg_copy)
+            
+            # The rest of the script expects a fixed-size, flattened array.
+            # We must pad the variable-sized array to meet this requirement.
+            expected_total_points = self.pc_height * self.pc_width
+            
+            # Create a zero-filled array with the expected fixed size and data type.
+            segmented_pc = np.zeros(expected_total_points, dtype=segmented_pc_variable.dtype)
+            
+            # Copy the actual points into the start of our padded array.
+            num_points_to_copy = min(len(segmented_pc_variable), expected_total_points)
+            segmented_pc[:num_points_to_copy] = segmented_pc_variable[:num_points_to_copy]
+
+            rospy.logwarn("Successfully patched and padded the point cloud to the expected fixed size.")
+
+
+        self.processed_scan_idx += 1
+        current_raw_timestamp = segmented_cloud_msg.header.stamp
+
+        # From this point on, the rest of your original code should work correctly,
+        # as 'segmented_pc' now has the fixed size it expects.
+        
         # remove nan values
         x_coords = np.nan_to_num(
             segmented_pc['x'].flatten(), copy=True, nan=0.0, posinf=None, neginf=None)

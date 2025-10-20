@@ -19,7 +19,7 @@ def generate_publish_instance_cloud_indoor(process_cloud_node_object, timestamp)
     global_track_ids = []
     current_instance_num = -1
     safe_to_publish = False
-
+    print("process_cloud_node_object.all_tracks", process_cloud_node_object.all_tracks)
     if len(process_cloud_node_object.all_tracks) > 0:
         for track in process_cloud_node_object.all_tracks:
             if track.age > process_cloud_node_object.tracker_age_thresh_lower:
@@ -74,7 +74,7 @@ def generate_publish_instance_cloud_indoor(process_cloud_node_object, timestamp)
 
 
 def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_global_ids):
-
+    print("in cuboid detection indoor function")
     cuboids = []
     cuboid_clus_centroids = []
     assert len(instances_xyzl) == len(instance_global_ids)
@@ -93,7 +93,10 @@ def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_
             #################################### PCA ###################################
             pca = PCA(n_components=2)
             # Skipping PCA if less than 50 points for the instance
+            if instance_xyz.shape[0] <50:
+                print("Skipping PCA if less than 50 points for the instance")
             if instance_xyz.shape[0] > 50:
+                print("Not skipping PCA if less than 50 points for the instance")
                 o_pcd = o3d.geometry.PointCloud()
                 o_pcd.points = o3d.utility.Vector3dVector(instance_xyz)
                 # make this try except block to avoid the error when the convex hull computation fails
@@ -187,6 +190,9 @@ def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_
 
         flag = False
         # TODO(ankit): Currently only comparing length and not width. Now that PCA is used, add width comparison as well
+        print(process_cloud_node_object.length_cutoffs)
+        print(process_cloud_node_object.height_cutoffs)
+        print(length,height)
         flag = (length > process_cloud_node_object.length_cutoffs[cur_object_class][0] and length < process_cloud_node_object.length_cutoffs[cur_object_class][1]
                 and height > process_cloud_node_object.height_cutoffs[cur_object_class][0] and height < process_cloud_node_object.height_cutoffs[cur_object_class][1])
         if flag:
@@ -203,6 +209,11 @@ def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_
 
 
 def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, confidence_threshold):
+    print("fit_cuboid_indoor")
+    # print("input_pc", input_pc)
+    print("depth_percentile", depth_percentile)
+    print("confidence_threshold", confidence_threshold)
+    print("fit_cuboid_length_thresh", fit_cuboid_length_thresh)
     # input_pc: x, y, z, intensity, instance_id, confidence, depth
     cloud_mat_3d = input_pc[:, :3]
     instance_ids = input_pc[:, 4]
@@ -216,21 +227,29 @@ def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, conf
     raw_points = []
     for k in unique_labels:
         if k == 0:
+            print("skipping background points")
             continue  # background points or other instances
         class_member_mask = (instance_ids == k)
         if np.sum(class_member_mask) > 0:
+            # print("class_member_mask", class_member_mask)
             cur_depth_values = depth_values[class_member_mask]
+            print("cur_depth_values", cur_depth_values)
             depth_thres_low = np.percentile(
                 cur_depth_values, depth_percentile[0])
+            print("depth_thres_low", depth_thres_low)
             depth_thres_high = np.percentile(
                 cur_depth_values, depth_percentile[1])
+            print("depth_thres_high", depth_thres_high)
             confidence = np.median(confidence_values[class_member_mask])
             if confidence > confidence_threshold:
+                print("confidence", confidence)
                 valid_pts_mask = np.logical_and(
                     (cur_depth_values > depth_thres_low), (cur_depth_values < depth_thres_high))
+                print("valid_pts_mask", valid_pts_mask)
                 if np.sum(valid_pts_mask) > 0:
                     xyzs_instance = cloud_mat_3d[class_member_mask, :]
                     xyzs = xyzs_instance[valid_pts_mask, :]
+                    print("xyzs", xyzs)
                     xyzs_valid = xyzs
                     xs = xyzs_valid[:, 0]
                     ys = xyzs_valid[:, 1]
@@ -238,11 +257,18 @@ def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, conf
                     y_max = np.max(ys)
                     x_min = np.min(xs)
                     y_min = np.min(ys)
+                    print("x_max", x_max)
+                    print("y_max", y_max)
+                    print("x_min", x_min)
+                    print("y_min", y_min)
                     xc = np.median(xs)
                     yc = np.median(ys)
                     length = x_max - x_min
                     width = y_max - y_min
+                    print("length", length)
+                    print("width", width)
                     if length > fit_cuboid_length_thresh:
+                        print("length", length)
                         xcs.append(xc)
                         ycs.append(yc)
                         lengths.append(length)

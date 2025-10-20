@@ -31,6 +31,7 @@ class Inference:
 
         model_directory = rospy.get_param(
             "/"+self.node_name+"/model_dir", default="/home/sam/semantic-segmentation/lidar-bonnetal/pennovation-darknet-smallest/")
+        
         namespace = rospy.get_param(
             "/"+self.node_name+"/namespace", default="/os_node")
         print(f"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -48,7 +49,8 @@ class Inference:
 
         self.last_called_stamp = None
 
-        self.load_obj_ = Load_Model(model_directory)
+        device = 'cpu' 
+        self.load_obj_ = Load_Model(model_directory, device=device)
         self.model_ = self.load_obj_.load_model()
         self.scan_obj_ = LaserScan(project=True,
                                    H=self.load_obj_.arch_configs["dataset"]["sensor"]["img_prop"]["height"],
@@ -59,14 +61,16 @@ class Inference:
 
         # Set model cuda parameters
         self.gpu_ = False
-        if torch.cuda.is_available() and torch.cuda.device_count() > 0 and \
-                rospy.get_param("gpu", default=True):
-            cudnn.benchmark = True
-            cudnn.fastest = True
-            self.gpu_ = True
-            self.model_.cuda()
-        else:
-            self.model_.cpu()
+        # if torch.cuda.is_available() and torch.cuda.device_count() > 0 and \
+        #         rospy.get_param("gpu", default=True):
+        #     cudnn.benchmark = True
+        #     cudnn.fastest = True
+        #     self.gpu_ = True
+        #     self.model_.cuda()
+        # else:
+        #     self.model_.cpu()
+        self.model_.cpu()
+        print("[infer_node] Using CPUuuuuuuuuuuuuuuuuuuuu")
 
         # Push model into eval mode
         self.model_.eval()
@@ -82,6 +86,8 @@ class Inference:
         # Publisher for publishing segmented point cloud
         self.pc_pub_ = rospy.Publisher(
             namespace+"/segmented_point_cloud_no_destagger", PointCloud2, queue_size=1)
+        self.pc_pub_custom = rospy.Publisher(
+            namespace+"/isthisit", PointCloud2, queue_size=1)
         # Publisher for active SLAM to publish car probability. Currently not used
         # self.prob_pub = rospy.Publisher(namespace + "/os_node/segmented_point_cloud_no_destagger/car_prob", PointCloud2, queue_size=1)
 
@@ -226,6 +232,19 @@ class Inference:
             # Output probability instead of hard classification
             proj_argmax = proj_output[0].argmax(dim=0)
 
+# --- START: CODE TO PRINT PREDICTION ---
+
+            # Move the prediction tensor from the GPU to the CPU for printing
+            prediction_cpu = proj_argmax.cpu()
+
+            # Print the shape to understand its dimensions (e.g., [64, 1024])
+            print(f"Prediction shape: {prediction_cpu.shape}")
+
+            # Print the tensor itself to see the class labels
+            # Note: This will print a large array to your console.
+            print("RangeNet++ Prediction:\n", prediction_cpu)
+
+
             # threshold out of range points
             points_xyz[np.linalg.norm(
                 points_xyz, axis=1) > self.range_threshold, :] = self.out_of_range_pts_default_position
@@ -280,6 +299,7 @@ class Inference:
             pc_msg.fields = self.pc_fields_
             pc_msg.data = full_data_range_image.tobytes()
             self.pc_pub_.publish(pc_msg)
+            self.pc_pub_custom.publish(pc_msg)
 
             # Original code for publishing segmented point cloud where point cloud is already organized
             # --------------------------------------------------------------------------------------------
@@ -311,6 +331,7 @@ class Inference:
 if __name__ == '__main__':
 
     node_name = rospy.get_param("/infer_node_name", default="inference_node")
+    print("running rangeneeeeettttttt")
     rospy.init_node(node_name)
     inf = Inference(node_name)
 

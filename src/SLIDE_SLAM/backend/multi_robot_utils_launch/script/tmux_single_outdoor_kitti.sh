@@ -6,7 +6,7 @@ BAG_PLAY_RATE=1.0
 #BAG_DIR='/home/sam/bags/vems-slam-bags/all_slide_slam_public_demos/forests'
 # BAG_DIR='/opt/bags/vems-slam-bags/all_slide_slam_public_demos/forests'
 # BAG_DIR='/home/sam/bags/vems-slam-bags/all_slide_slam_public_demos/indoor'
-BAG_DIR='/opt/bags/vems-slam-bags/kitti_benchmark'
+BAG_DIR='/opt/bags/indoor'
 
 CURRENT_DISPLAY=${DISPLAY}
 if [ -z ${DISPLAY} ];
@@ -57,7 +57,7 @@ tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shap
 # tmux select-pane -t $SESSION_NAME:1.4
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch run_flio_with_driver.launch" Enter
 tmux select-pane -t $SESSION_NAME:1.5
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 10; cd $BAG_DIR && rosbag play kitti-slide-slam-0-*.bag --clock -r $BAG_PLAY_RATE -s 0 /aft_mapped_to_init:=/Odometry /semantic_point_cloud:=/os_node/segmented_point_cloud_no_destagger_high_freq" Enter
+tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 0 /spot/odom:=/Odometry /ouster/points:=/os_node/segmented_point_cloud_no_destagger_high_freq" Enter
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play robot4*.bag -r $BAG_PLAY_RATE --topics /Odometry /robot0/semantic_meas_sync_odom /Odometry:=/robot4/odom /robot0/semantic_meas_sync_odom:=/robot4/semantic_meas_sync_odom" Enter
 # tmux select-pane -t $SESSION_NAME:1.5
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play robot5*.bag -r $BAG_PLAY_RATE --topics /Odometry /robot0/semantic_meas_sync_odom /Odometry:=/robot5/odom /robot0/semantic_meas_sync_odom:=/robot5/semantic_meas_sync_odom" Enter

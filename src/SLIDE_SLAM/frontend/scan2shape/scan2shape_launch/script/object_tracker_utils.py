@@ -108,7 +108,7 @@ def track_objects_final(process_cloud_node_obj, cur_class_label, cur_objects, cu
 
 
 def track_objects_indoor(process_cloud_node_obj, cur_class_label, cur_obj_class, cur_objects, all_objects, all_tracks, scan_idx, cur_objects_raw_points, downsample_res=0.3, num_instance_point_lim=50000):
-
+    print("track_objects_indoor")
     global track_id
     if scan_idx == 0 or len(all_objects) == 0:
 
@@ -268,9 +268,9 @@ def publish_markers(process_cloud_node, all_tracks, cur_cls_name=None, height=1.
         marker.pose.position.y = track.y
         marker.pose.position.z = height
 
-        marker.scale.x = 0.2
-        marker.scale.y = 0.2
-        marker.scale.z = 0.2*height
+        marker.scale.x = 10
+        marker.scale.y = 10
+        marker.scale.z = 10*height
 
         marker.pose.orientation.x = 0.0
         marker.pose.orientation.y = 0.0
