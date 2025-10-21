@@ -31,7 +31,7 @@ struct EIGEN_ALIGN16 Point {
     float intensity;
     uint32_t t;
     uint16_t reflectivity;
-    uint8_t ring;
+    uint16_t ring;
     uint16_t ambient;
     uint32_t range;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -47,7 +47,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(ouster_ros::Point,
                                       // use std::uint32_t to avoid conflicting with pcl::uint32_t
                                   (std::uint32_t, t, t)
                                   (std::uint16_t, reflectivity, reflectivity)
-                                  (std::uint8_t, ring, ring)
+                                  (std::uint16_t, ring, ring)
                                   (std::uint16_t, ambient, ambient)
                                   (std::uint32_t, range, range)
                                   )
@@ -55,7 +55,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(ouster_ros::Point,
 
 namespace faster_lio {
 
-enum class LidarType { AVIA = 1, VELO32, OUST64 };
+enum class LidarType { AVIA = 1, VELO32, OUST64 , OUST128 };
 
 /**
  * point cloud preprocess
@@ -87,6 +87,7 @@ class PointCloudPreprocess {
     void AviaHandler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
     void Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
     void VelodyneHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+    void Oust128Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
 
     PointCloudType cloud_full_, cloud_out_;
 

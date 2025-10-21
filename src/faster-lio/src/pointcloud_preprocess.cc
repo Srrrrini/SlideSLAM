@@ -21,7 +21,9 @@ void PointCloudPreprocess::PCProcess(const sensor_msgs::PointCloud2::ConstPtr &m
         case LidarType::OUST64:
             Oust64Handler(msg);
             break;
-
+        case LidarType::OUST128:
+            Oust128Handler(msg);
+            break;
         case LidarType::VELO32:
             VelodyneHandler(msg);
             break;
@@ -109,6 +111,42 @@ void PointCloudPreprocess::Oust64Handler(const sensor_msgs::PointCloud2::ConstPt
         cloud_out_.points.push_back(added_pt);
     }
 }
+
+void PointCloudPreprocess::Oust128Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
+    cloud_out_.clear();
+    cloud_full_.clear();
+    pcl::PointCloud<ouster_ros::Point> pl_orig;
+    pcl::fromROSMsg(*msg, pl_orig);
+    int plsize = pl_orig.size();
+    cloud_out_.reserve(plsize);
+
+    for (int i = 0; i < pl_orig.points.size(); i++) {
+        if (!pcl::isFinite(pl_orig.points[i])) {
+            continue;
+        }
+        // Note: pointcloud preprocess step 1 only take every point_filter_num_ points
+        if (i % point_filter_num_ != 0) continue;
+
+        // Note: pointcloud preprocess step 2 remove points that are too close
+        double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y +
+                       pl_orig.points[i].z * pl_orig.points[i].z;
+        if (range < (blind_ * blind_)) continue;
+
+        Eigen::Vector3d pt_vec;
+        PointType added_pt;
+        added_pt.x = pl_orig.points[i].x;
+        added_pt.y = pl_orig.points[i].y;
+        added_pt.z = pl_orig.points[i].z;
+        added_pt.intensity = pl_orig.points[i].intensity;
+        added_pt.normal_x = 0;
+        added_pt.normal_y = 0;
+        added_pt.normal_z = 0;
+        added_pt.curvature = pl_orig.points[i].t / 1e6;  // curvature unit: ms
+
+        cloud_out_.points.push_back(added_pt);
+    }
+}
+
 
 void PointCloudPreprocess::VelodyneHandler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     cloud_out_.clear();
