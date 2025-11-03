@@ -260,6 +260,7 @@ void LaserMapping::SubAndPubToROS(ros::NodeHandle &nh) {
     pub_laser_cloud_body_ = nh.advertise<sensor_msgs::PointCloud2>("/cloud_registered_body", 100000);
     pub_laser_cloud_effect_world_ = nh.advertise<sensor_msgs::PointCloud2>("/cloud_registered_effect_world", 100000);
     pub_odom_aft_mapped_ = nh.advertise<nav_msgs::Odometry>("/Odometry", 100000);
+    // pub_odom_ugv_ = nh.advertise<nav_msgs::Odometry>("/odom_ugv", 100000);
     pub_path_ = nh.advertise<nav_msgs::Path>("/path", 100000);
 }
 
@@ -344,6 +345,9 @@ void LaserMapping::Run() {
         if (pub_odom_aft_mapped_) {
             PublishOdometry(pub_odom_aft_mapped_);
         }
+        // if (pub_odom_ugv_) {
+        //     PublishOdometry(pub_odom_ugv_);
+        // }
         if (path_pub_en_ || path_save_en_) {
             PublishPath(pub_path_);
         }

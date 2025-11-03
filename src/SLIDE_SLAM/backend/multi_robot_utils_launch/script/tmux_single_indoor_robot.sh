@@ -31,51 +31,54 @@ tmux setw -g mouse on
 
 
 tmux new-window -t $SESSION_NAME -n "Main"
-tmux split-window -h -t $SESSION_NAME
-tmux select-pane -t $SESSION_NAME:1.0
-tmux split-window -v -t $SESSION_NAME
-tmux select-pane -t $SESSION_NAME:1.3
-tmux split-window -v -t $SESSION_NAME
-tmux select-pane -t $SESSION_NAME:1.0
-tmux split-window -h -t $SESSION_NAME
-# tmux select-pane -t $SESSION_NAME:1.3
-# tmux split-window -h -t $SESSION_NAME
-# tmux select-pane -t $SESSION_NAME:1.2
-# tmux split-window -h -t $SESSION_NAME
-# tmux select-pane -t $SESSION_NAME:1.6
-# tmux split-window -h -t $SESSION_NAME
-# tmux select-pane -t $SESSION_NAME:1.6
-# tmux split-window -h -t $SESSION_NAME
 
+# Split horizontally → left/right columns
+tmux split-window -h -t $SESSION_NAME:1.0
 
-
-# cerlab file code
+# Left column: create 3 panes (1.0–1.2)
 tmux select-pane -t $SESSION_NAME:1.0
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller rgb_segmentation_f250.launch" Enter
+tmux split-window -v -t $SESSION_NAME:1.0
+tmux split-window -v -t $SESSION_NAME:1.0
+tmux split-window -v -t $SESSION_NAME:1.0
+
+# Right column: create 3 panes (1.3–1.5)
 tmux select-pane -t $SESSION_NAME:1.1
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/odom_ugv" Enter
-tmux select-pane -t $SESSION_NAME:1.2
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test.launch enable_rviz:=true" Enter
-tmux select-pane -t $SESSION_NAME:1.3
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch process_cloud_node_rgbd_indoor_with_ns.launch odom_topic:=/odom_ugv robot_name:=robot0" Enter
-tmux select-pane -t $SESSION_NAME:1.4
+tmux split-window -v -t $SESSION_NAME:1.1
+tmux split-window -v -t $SESSION_NAME:1.1
+tmux split-window -v -t $SESSION_NAME:1.1
+
+tmux select-layout -t $SESSION_NAME:1 tiled
+
+# Launch your 6 processes
+tmux send-keys -t $SESSION_NAME:1.0 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller rgb_segmentation_f250.launch" Enter
+tmux send-keys -t $SESSION_NAME:1.1 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/odom_ugv" Enter
+tmux send-keys -t $SESSION_NAME:1.2 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test.launch enable_rviz:=true" Enter
+tmux send-keys -t $SESSION_NAME:1.3 "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch process_cloud_node_rgbd_indoor_with_ns.launch odom_topic:=/odom_ugv robot_name:=robot0" Enter
+tmux send-keys -t $SESSION_NAME:1.4 "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch run_flio_with_driver.launch" Enter
+tmux send-keys -t $SESSION_NAME:1.5 "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
+
+# --- SECOND WINDOW: 2 panes ---
+tmux new-window -t $SESSION_NAME -n "Extra"
+tmux split-window -v -t $SESSION_NAME:2.0
+tmux select-layout -t $SESSION_NAME:2 even-vertical
+
+# Launch 2 more processes
+tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE --topics /spot_image /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points" Enter
+# tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 105 --topics /spot/odom /ouster/points /spot_image /spot/odom:=/Odometry /ouster/points:=/os_node/points" Enter
+
+# tmux send-keys -t $SESSION_NAME:2.1 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test_LiDAR.launch enable_rviz:=true" Enter
+tmux send-keys -t $SESSION_NAME:2.1 "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
+
+# Optional: return focus to main window
+tmux select-window -t $SESSION_NAME:1
+
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true; rosbag play ugv_yolo_duplicated.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /depth_ugv /depth_ugv1 /rgb_ugv /depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /rgb_ugv:=/robot0/camera/color/image_raw /depth_ugv1:=/robot0/camera/depth/image_rect_raw" Enter
-
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 17; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 105 --topics /spot/odom /ouster/points /spot_image" Enter
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play test1.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv depth_ugv1 /camera_front/rgb_ugv /camera_front/depth_ugv depth_ugv1:=/robot0/camera/aligned_depth_to_color/image_raw /camera_front/rgb_ugv:=/robot0/camera/color/image_raw /camera_front/depth_ugv:=/robot0/camera/depth/image_rect_raw" Enter
-              
 # Add lidar_cam_calibrater node 
-tmux split-window -h -t $SESSION_NAME
-tmux select-pane -t $SESSION_NAME:1.5
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
+# tmux split-window -h -t $SESSION_NAME
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true;rosrun topic_tools relay /robot0/camera/aligned_depth_to_color/image_raw /robot0/camera/depth/image_rect_raw & sleep 0; rosbag play sim_ugv.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /camera_front/depth_ugv /camera_front/rgb_ugv /camera_front/depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /camera_front/rgb_ugv:=/robot0/camera/color/image_raw" Enter
-
-
-
 # tmux select-pane -t $SESSION_NAME:1.4
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play test1.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv depth_ugv1 /camera_front/rgb_ugv /camera_front/depth_ugv depth_ugv1:=/robot0/camera/aligned_depth_to_color/image_raw /camera_front/rgb_ugv:=/robot0/camera/color/image_raw /camera_front/depth_ugv:=/robot0/camera/depth/image_rect_raw" Enter
-
-
 # default code
 # tmux select-pane -t $SESSION_NAME:1.0
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller rgb_segmentation_f250.launch" Enter
@@ -115,7 +118,7 @@ roscd multi_robot_utils_launch/script
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play robot7*.bag --topics /Odometry /robot0/semantic_meas_sync_odom /Odometry:=/robot7/odom /robot0/semantic_meas_sync_odom:=/robot7/semantic_meas_sync_odom" Enter
 # tmux select-pane -t $SESSION_NAME:1.8
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING;" Enter
-tmux select-layout -t $SESSION_NAME tiled
+# tmux select-layout -t $SESSION_NAME tiled
 
 
 # Add window for roscore

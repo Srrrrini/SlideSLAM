@@ -9,7 +9,7 @@
     <param name="registered_depth_topic" value="/camera_front/depth_ugv" />
     <param name="depth_ugv1_topic" value="/depth_ugv1" />
     <param name="rgb_ugv_topic" value="/camera_front/rgb_ugv" />
-    <param name="spot_odom_topic" value="/spot/odom" />
+    <param name="spot_odom_topic" value="/Odometry" />
     <param name="odom_ugv_topic" value="/odom_ugv" />
     
     <!-- Other parameters -->

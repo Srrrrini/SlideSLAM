@@ -1,4 +1,5 @@
 #include "lidar_cam_calibrater/RegisterRGBD.h"
+#include <tf/transform_broadcaster.h>
 
 RegisterRGBD::RegisterRGBD(ros::NodeHandle &node){
     image_transport::ImageTransport it(node);
@@ -9,7 +10,7 @@ RegisterRGBD::RegisterRGBD(ros::NodeHandle &node){
     node.param<std::string>("test_sub_image_topic", test_sub_image_topic, "/test_sub_image");
     node.param<std::string>("registered_color_topic", registered_color_topic, "/camera_front/processed_rgb");
     node.param<std::string>("registered_depth_topic", registered_depth_topic, "/robot0/camera/aligned_depth_to_color/image_raw");
-    node.param<std::string>("spot_odom_topic", spot_odom_topic, "/spot/odom");
+    node.param<std::string>("spot_odom_topic", spot_odom_topic, "/Odometry");
     node.param<std::string>("odom_ugv_topic", odom_ugv_topic, "/odom_ugv");
     node.param<std::string>("rgb_ugv_topic", rgb_ugv_topic, "/robot0/camera/color/image_raw");
     node.param<std::string>("depth_ugv1_topic", depth_ugv1_topic, "/robot0/camera/depth/image_rect_raw");
@@ -28,7 +29,7 @@ RegisterRGBD::RegisterRGBD(ros::NodeHandle &node){
     odom_sub = node.subscribe(spot_odom_topic, 100, &RegisterRGBD::odomCallback, this);
     odom_pub = node.advertise<nav_msgs::Odometry>(odom_ugv_topic, 100);
 
-    lidar_pointcloud_sub.subscribe(node, "/ouster/points",100); 
+    lidar_pointcloud_sub.subscribe(node, "/os_node/points",100); 
     stitched_image_sub.subscribe(node, "/spot_image",100);
     
     sync_.reset(new Sync(MySyncPolicy(50), lidar_pointcloud_sub, stitched_image_sub));
@@ -70,10 +71,45 @@ void RegisterRGBD::imageCallback(const sensor_msgs::ImageConstPtr& msg){
     image_pub.publish(output_msg);
 }
 
-void RegisterRGBD::odomCallback(const nav_msgs::Odometry::ConstPtr& msg){
-    // Simply republish the odom message to the new topic
-    odom_pub.publish(msg);
+// void RegisterRGBD::odomCallback(const nav_msgs::Odometry::ConstPtr& msg){
+//     // Simply republish the odom message to the new topic
+//     odom_pub.publish(msg);
+// }
+
+void RegisterRGBD::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+    // Copy incoming message
+    nav_msgs::Odometry odom_msg = *msg;
+
+    // Change frame names
+    odom_msg.header.frame_id = "odom_ugv";     // parent frame
+    odom_msg.child_frame_id = "camera";        // or "base_link" / "body", depending on your robot
+
+    // Publish the updated odometry message
+    odom_pub.publish(odom_msg);
+
+    // Broadcast corresponding TF
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(
+        odom_msg.pose.pose.position.x,
+        odom_msg.pose.pose.position.y,
+        odom_msg.pose.pose.position.z));
+    tf::Quaternion q(
+        odom_msg.pose.pose.orientation.x,
+        odom_msg.pose.pose.orientation.y,
+        odom_msg.pose.pose.orientation.z,
+        odom_msg.pose.pose.orientation.w);
+    transform.setRotation(q);
+    br.sendTransform(tf::StampedTransform(transform,
+        odom_msg.header.stamp,
+        "odom_ugv",   // parent frame
+        "camera_init"      // child frame
+    ));
 }
+
+
+
 
 void RegisterRGBD::spotImageCallback(const sensor_msgs::ImageConstPtr& msg){
     // Simply republish the original spot image without any processing

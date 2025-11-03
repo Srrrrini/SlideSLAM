@@ -47,9 +47,9 @@ tmux split-window -h -t $SESSION_NAME
 # tmux select-pane -t $SESSION_NAME:1.6
 # tmux split-window -h -t $SESSION_NAME
 tmux select-pane -t $SESSION_NAME:1.0
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; CUDA_VISIBLE_DEVICES="" roslaunch scan2shape_launch infer_node.launch" Enter
+# tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; CUDA_VISIBLE_DEVICES="" roslaunch scan2shape_launch infer_node.launch" Enter
 tmux select-pane -t $SESSION_NAME:1.1
-tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/Odometry" Enter
+# tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/Odometry" Enter
 tmux select-pane -t $SESSION_NAME:1.2
 tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test_LiDAR.launch enable_rviz:=true" Enter
 tmux select-pane -t $SESSION_NAME:1.3
