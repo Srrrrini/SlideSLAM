@@ -131,30 +131,33 @@ void RegisterRGBD::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     body_to_camera.setOrigin(tf::Vector3(0, 0, 0));
     body_to_camera.setBasis(rot_body_to_cam);
     
+    // Publish transform: odom_ugv -> body (for SLOAM and robot visualization)
+    // Since odom_ugv = camera_init, this is directly from faster-lio
+    br.sendTransform(tf::StampedTransform(camera_init_to_body,
+        msg->header.stamp,
+        "odom_ugv",   // parent frame (alias for camera_init)
+        "body"        // child frame (robot body frame for SLOAM)
+    ));
+    
     // Compute camera_init -> camera = (camera_init -> body) * (body -> camera)
+    // This is needed for semantic processing (scan2shape)
     tf::Transform camera_init_to_camera = camera_init_to_body * body_to_camera;
     
-    // Publish transform: odom_ugv -> camera (since odom_ugv = camera_init)
+    // Publish transform: odom_ugv -> camera (for semantic processing)
     br.sendTransform(tf::StampedTransform(camera_init_to_camera,
         msg->header.stamp,
         "odom_ugv",   // parent frame (alias for camera_init)
-        "camera"      // child frame
+        "camera"      // child frame (camera frame for semantic processing)
     ));
 
-    // Publish odometry message with corrected frame names
+    // Publish odometry message with body frame (for SLOAM)
+    // SLOAM expects odometry to represent body pose in world frame
     odom_msg.header.frame_id = "odom_ugv";     // parent frame (world frame)
-    odom_msg.child_frame_id = "camera";        // child frame
+    odom_msg.child_frame_id = "body";          // child frame (robot body frame)
     
-    // Update the pose in the message to represent camera pose in odom_ugv frame
-    tf::Vector3 camera_pos = camera_init_to_camera.getOrigin();
-    tf::Quaternion camera_quat = camera_init_to_camera.getRotation();
-    odom_msg.pose.pose.position.x = camera_pos.x();
-    odom_msg.pose.pose.position.y = camera_pos.y();
-    odom_msg.pose.pose.position.z = camera_pos.z();
-    odom_msg.pose.pose.orientation.x = camera_quat.x();
-    odom_msg.pose.pose.orientation.y = camera_quat.y();
-    odom_msg.pose.pose.orientation.z = camera_quat.z();
-    odom_msg.pose.pose.orientation.w = camera_quat.w();
+    // The pose in the message already represents body pose (from faster-lio)
+    // No need to transform - it's already camera_init -> body
+    // Just update frame IDs in the message header
     
     // Publish the updated odometry message
     odom_pub.publish(odom_msg);

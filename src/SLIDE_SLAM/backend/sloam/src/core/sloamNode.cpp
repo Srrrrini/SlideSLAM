@@ -11,6 +11,7 @@
 #include <pcl/common/io.h>
 #include <ros/console.h>
 #include <sloamNode.h>
+#include <cmath>
 
 #include <chrono>
 
@@ -212,7 +213,17 @@ void SLOAMNode::publishResults_(const SloamInput &sloamIn,
 
   pubAllPointLandmarks_.publish(allLandmarksMarkers);
 
-  pubMapPose_.publish(makeROSPose(sloamOut.T_Map_Curr, map_frame_id_, stamp));
+  // Apply 180-degree yaw rotation correction to fix flipped marker visualization
+  // This is needed because of coordinate frame convention differences between
+  // faster-lio's camera_init frame and RViz marker visualization
+  SE3 corrected_pose = sloamOut.T_Map_Curr;
+  // Create a 180-degree rotation around Z-axis (yaw)
+  Sophus::SO3d yaw_correction = Sophus::SO3d::rotZ(M_PI);
+  // Apply the correction: create new SE3 with corrected rotation and same translation
+  Sophus::SO3d corrected_rotation = corrected_pose.so3() * yaw_correction;
+  corrected_pose = SE3(corrected_rotation, corrected_pose.translation());
+  
+  pubMapPose_.publish(makeROSPose(corrected_pose, map_frame_id_, stamp));
 
     std::vector<SE3> trajectory_viz;
     std::vector<size_t> pose_idx;

@@ -1032,7 +1032,7 @@ Visualization Manager:
       Class: rviz/PointCloud2
       Color: 136; 138; 133
       Color Transformer: AxisColor
-      Decay Time: 10
+      Decay Time: 2
       Enabled: true
       Invert Rainbow: true
       Max Color: 255; 255; 255
@@ -1125,13 +1125,25 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: false
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /spot_image
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Spot Image
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
     Default Light: true
-    Fixed Frame: quadrotor/map
+    Fixed Frame: camera_init
     Frame Rate: 30
-  Name: rootquadrotor/map
+  Name: rootcamera_init
   Tools:
     - Class: rviz/Interact
       Hide Inactive Objects: true
@@ -1170,7 +1182,7 @@ Visualization Manager:
       Name: Current View
       Near Clip Distance: 0.009999999776482582
       Pitch: 0.3852035403251648
-      Target Frame: body
+      Target Frame: <Fixed Frame>
       Yaw: 3.3053972721099854
     Saved: ~
 Window Geometry:
