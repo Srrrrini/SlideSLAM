@@ -63,7 +63,7 @@ tmux split-window -v -t $SESSION_NAME:2.0
 tmux select-layout -t $SESSION_NAME:2 even-vertical
 
 # Launch 2 more processes
-tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE --topics /spot_image /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points" Enter
+tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 10; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE --topics /spot_image /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points" Enter
 # tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 105 --topics /spot/odom /ouster/points /spot_image /spot/odom:=/Odometry /ouster/points:=/os_node/points" Enter
 
 # tmux send-keys -t $SESSION_NAME:2.1 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test_LiDAR.launch enable_rviz:=true" Enter

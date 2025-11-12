@@ -1127,11 +1127,11 @@ Visualization Manager:
       Value: false
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /spot_image
+      Image Topic: /robot0/sem_detection/detections_image
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Spot Image
+      Name: YOLO Detections
       Normalize Range: true
       Queue Size: 2
       Transport Hint: raw
@@ -1188,7 +1188,7 @@ Visualization Manager:
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1016
+  Height: 1219
   Hide Left Dock: false
   Hide Right Dock: true
   Image:
@@ -1202,6 +1202,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 1848
+  Width: 2218
   X: 2818
   Y: 155

@@ -20,6 +20,7 @@
         <param name="~sync_odom_measurements" value="true"/>
         <param name="~sync_pc_odom_topic" value="/robot$(arg robot_ID)/sem_detection/sync_pc_odom"/>
         <param name="~pc_topic" value="/robot$(arg robot_ID)/sem_detection/pointcloud"/>
+        <param name="~detection_image_topic" value="/robot$(arg robot_ID)/sem_detection/detections_image"/>
 
 
 

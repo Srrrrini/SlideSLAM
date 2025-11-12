@@ -73,6 +73,7 @@ class sem_detection:
         self.sync_odom_measurements = rospy.get_param('~sync_odom_measurements', True)
         self.sync_pc_odom_topic = rospy.get_param('~sync_pc_odom_topic', '/sem_detection/sync_pc_odom')
         self.pc_topic = rospy.get_param('~pc_topic', '/sem_detection/pointcloud')
+        self.detection_image_topic = rospy.get_param('~detection_image_topic', '/sem_detection/detections_image')
 
         # Subscriber and publisher
         self.rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
@@ -84,7 +85,7 @@ class sem_detection:
 
         self.pc_pub_ = rospy.Publisher(self.pc_topic, PointCloud2, queue_size=1)
         self.synced_pc_pub_ = rospy.Publisher(self.sync_pc_odom_topic, syncPcOdom, queue_size=1)
-        self.detection_image_pub = rospy.Publisher('/sem_detection/detections_image', Image, queue_size=1)
+        self.detection_image_pub = rospy.Publisher(self.detection_image_topic, Image, queue_size=1)
 
 
         # Synchronize the two image topics with a time delay of 0.1 seconds
@@ -164,16 +165,16 @@ class sem_detection:
                     print(cls_str)
                     id[mask_pos] = i+1
                     conf[mask_pos] = float(detection.boxes.conf[i])
-        # 2. Overlay bounding boxes and publish the image
-        annotated_img = detections[0].plot()
-
-        # Convert the annotated image back to a ROS Image message
+        
+        # Publish annotated image with bounding boxes overlay
+        # The plot() method works even when there are no detections (returns original image)
         try:
+            annotated_img = detections[0].plot()
             annotated_img_msg = bridge.cv2_to_imgmsg(annotated_img, "bgr8")
             annotated_img_msg.header = rgb.header
             self.detection_image_pub.publish(annotated_img_msg)
         except Exception as e:
-            rospy.logerr("Error converting image for publishing: %s", e)
+            rospy.logerr("Error publishing detection image: %s", e)
         # Create a grid of pixel coordinates
         # ------------- old pinhole cam 3d reconstruction --------------------------
         # u, v = np.meshgrid(np.arange(depth_img.shape[1]), np.arange(depth_img.shape[0]))
@@ -314,6 +315,16 @@ class sem_detection:
                     label[mask_pos] = self.get_cls_label(cls_str)
                     id[mask_pos] = i+1
                     conf[mask_pos] = float(detection.boxes.conf[i])
+        
+        # Publish annotated image with bounding boxes overlay
+        # The plot() method works even when there are no detections (returns original image)
+        try:
+            annotated_img = detections[0].plot()
+            annotated_img_msg = bridge.cv2_to_imgmsg(annotated_img, "bgr8")
+            annotated_img_msg.header = rgb.header
+            self.detection_image_pub.publish(annotated_img_msg)
+        except Exception as e:
+            rospy.logerr("Error publishing detection image: %s", e)
         
         # 4. go through depth, project them to 3D
         # print(depth_img.shape)
