@@ -142,19 +142,23 @@ def transform_publish_pc(process_cloud_node_object, current_timestamp, pc_xyzi_i
 
     try:
         # transform data from the source_frame into the target_frame
-        (t_world_pano, quat_world_pano) = process_cloud_node_object.tf_listener2.lookupTransform(
-            process_cloud_node_object.undistorted_cloud_frame, process_cloud_node_object.reference_frame, current_timestamp)
-        r_world_pano = R.from_quat(quat_world_pano)
-        H_world_pano_rot = r_world_pano.as_matrix()
-        H_world_pano_trans = np.array(t_world_pano)
-        # transformation matrix from world to robot
-        H_world_pano[:3, :3] = H_world_pano_rot
-        H_world_pano[:3, 3] = H_world_pano_trans
-        H_world_pano[3, 3] = 1
+        # lookupTransform(target, source, time) returns transform FROM source TO target
+        # We need transform FROM camera TO world (odom_ugv), so we lookup FROM reference_frame TO undistorted_cloud_frame
+        # and then invert it
+        (t_pano_world, quat_pano_world) = process_cloud_node_object.tf_listener2.lookupTransform(
+            process_cloud_node_object.reference_frame, process_cloud_node_object.undistorted_cloud_frame, current_timestamp)
+        r_pano_world = R.from_quat(quat_pano_world)
+        H_pano_world_rot = r_pano_world.as_matrix()
+        H_pano_world_trans = np.array(t_pano_world)
+        # transformation matrix from camera to world
+        H_pano_world = np.zeros((4, 4))
+        H_pano_world[:3, :3] = H_pano_world_rot
+        H_pano_world[:3, 3] = H_pano_world_trans
+        H_pano_world[3, 3] = 1
 
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-        rospy.logwarn("For timestamp, " + str(current_timestamp.to_sec()) + ", cannot find TF from " + process_cloud_node_object.reference_frame +
-                      " to " + process_cloud_node_object.undistorted_cloud_frame + ", skipping this point cloud.")
+        rospy.logwarn("For timestamp, " + str(current_timestamp.to_sec()) + ", cannot find TF from " + process_cloud_node_object.undistorted_cloud_frame +
+                      " to " + process_cloud_node_object.reference_frame + ", skipping this point cloud.")
         return None, None
 
     points_pano_xyz = pc_xyzi_id_conf_thres_camera[:, :3]
@@ -162,8 +166,8 @@ def transform_publish_pc(process_cloud_node_object, current_timestamp, pc_xyzi_i
     # convert to homogeneous representation
     points_pano_xyz_homg = np.ones((points_pano_xyz.shape[0], 4))
     points_pano_xyz_homg[:, :3] = points_pano_xyz
-    points_world_xyz_homg = (np.linalg.pinv(
-        H_world_pano) @ points_pano_xyz_homg.T).T
+    # Transform from camera frame to world frame
+    points_world_xyz_homg = (H_pano_world @ points_pano_xyz_homg.T).T
 
     factor_stacked = np.repeat(
         points_world_xyz_homg[:, 3].reshape(-1, 1), 3, axis=1)
@@ -238,53 +242,15 @@ def transform_publish_pc(process_cloud_node_object, current_timestamp, pc_xyzi_i
 
 
 def send_tfs(process_cloud_node_object, msg):
+    # NOTE: RegisterRGBD.cpp now properly publishes:
+    #   - camera_init -> odom_ugv (identity, so odom_ugv = camera_init, the fixed world frame)
+    #   - odom_ugv -> camera (computed from camera_init -> body -> camera)
+    # So we don't need to republish odom_ugv -> camera here.
+    # We only need to publish the static transform from camera to body (range_image_frame).
 
-    process_cloud_node_object.odom_broadcaster.sendTransform(
-        (0, 0, 0),
-        (0, 0, 0, 1),
-        msg.header.stamp,
-        "quadrotor/odom",
-        "quadrotor/map"  # If using LLOL's ouster driver, frame is rotated by 180 degrees
-    )
-
-    process_cloud_node_object.odom_broadcaster.sendTransform(
-        (0, 0, 0),
-        (0, 0, 0, 1),
-        msg.header.stamp,
-        "quadrotor/map",
-        # "dragonfly67/odom" 
-        "odom_ugv" # If using LLOL's ouster driver, frame is rotated by 180 degrees
-    )
-
-    process_cloud_node_object.odom_broadcaster.sendTransform(
-        (0, 0, 0),
-        (0, 0, 0, 1),
-        msg.header.stamp,
-        # "dragonfly67/odom",
-        "odom_ugv",
-        "odom"
-    )
-
-    process_cloud_node_object.odom_broadcaster.sendTransform(
-        (0, 0, 0),
-        (0, 0, 0, 1),
-        msg.header.stamp,
-        "odom",
-        "world"
-    )
-
-    process_cloud_node_object.odom_broadcaster.sendTransform(
-        (msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z),
-        (msg.pose.pose.orientation.x, msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z, msg.pose.pose.orientation.w),
-        msg.header.stamp,
-        process_cloud_node_object.range_image_frame,
-        process_cloud_node_object.reference_frame
-    )
-
-    odom_msg = msg
-    process_cloud_node_object.odom_pub.publish(odom_msg)
-
+    # Publish static transform: camera -> body (range_image_frame)
+    # This is the inverse of body -> camera transform
+    # Rotation matrix from camera to body (matches utils.py line 322-325)
     rot_mat = np.array([[0.0000000, -1.0000000,  0.0000000],
                         [0.0000000,  0.0000000, -1.0000000],
                         [1.0000000,  0.0000000,  0.0000000]])
@@ -295,9 +261,13 @@ def send_tfs(process_cloud_node_object, msg):
         (rot_cam_body_quat[0], rot_cam_body_quat[1],
          rot_cam_body_quat[2], rot_cam_body_quat[3]),
         msg.header.stamp,
-        process_cloud_node_object.undistorted_cloud_frame,
-        process_cloud_node_object.range_image_frame
+        process_cloud_node_object.undistorted_cloud_frame,  # camera
+        process_cloud_node_object.range_image_frame          # body
     )
+    
+    # Republish odometry message (for compatibility with other nodes that might subscribe to it)
+    odom_msg = msg
+    process_cloud_node_object.odom_pub.publish(odom_msg)
 
 
 def publish_accumulated_cloud(process_cloud_node_object, timestamp):

@@ -164,6 +164,9 @@ class ProcessCloudNode:
             # range image frame
             self.range_image_frame = "body"
             # self.reference_frame = "dragonfly67/odom"
+            # NOTE: odom_ugv is now properly connected to camera_init (fixed world frame from faster-lio)
+            # via an identity transform published by RegisterRGBD.cpp. This ensures reconstructions
+            # are in the fixed world frame, not moving relative to the robot.
             self.reference_frame = "odom_ugv"
             # undistorted point cloud frame
             self.undistorted_cloud_frame = "camera"

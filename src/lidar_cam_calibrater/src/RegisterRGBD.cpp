@@ -78,34 +78,86 @@ void RegisterRGBD::imageCallback(const sensor_msgs::ImageConstPtr& msg){
 
 void RegisterRGBD::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    // Copy incoming message
+    // Copy incoming message from faster-lio
+    // Faster-lio publishes: camera_init (world frame) -> body (robot body frame)
     nav_msgs::Odometry odom_msg = *msg;
 
-    // Change frame names
-    odom_msg.header.frame_id = "odom_ugv";     // parent frame
-    odom_msg.child_frame_id = "camera";        // or "base_link" / "body", depending on your robot
+    // Make odom_ugv an alias for camera_init (fixed world frame)
+    // Publish identity transform: camera_init -> odom_ugv
+    static tf::TransformBroadcaster br;
+    
+    // Identity transform: odom_ugv = camera_init (fixed world frame)
+    tf::Transform identity_transform;
+    identity_transform.setOrigin(tf::Vector3(0, 0, 0));
+    identity_transform.setRotation(tf::Quaternion(0, 0, 0, 1));
+    br.sendTransform(tf::StampedTransform(identity_transform,
+        msg->header.stamp,
+        "camera_init",   // parent frame (world frame from faster-lio)
+        "odom_ugv"       // child frame (alias for camera_init)
+    ));
 
+    // The incoming odom message is: camera_init -> body
+    // We need to compute: camera_init -> camera = (camera_init -> body) * (body -> camera)
+    // body -> camera is a static rotation transform (no translation)
+    // Rotation matrix from body to camera (from utils.py):
+    // R = [[0, 0, 1],
+    //      [-1, 0, 0],
+    //      [0, -1, 0]]
+    // This is the inverse of camera -> body transform
+    
+    // Get the transform from camera_init to body from the odom message
+    tf::Vector3 body_pos(
+        msg->pose.pose.position.x,
+        msg->pose.pose.position.y,
+        msg->pose.pose.position.z);
+    tf::Quaternion body_quat(
+        msg->pose.pose.orientation.x,
+        msg->pose.pose.orientation.y,
+        msg->pose.pose.orientation.z,
+        msg->pose.pose.orientation.w);
+    
+    // Create transform from camera_init to body
+    tf::Transform camera_init_to_body;
+    camera_init_to_body.setOrigin(body_pos);
+    camera_init_to_body.setRotation(body_quat);
+    
+    // Static transform from body to camera (rotation only, no translation)
+    // This matches the transform in scan2shape_launch/script/utils.py line 322-325
+    tf::Matrix3x3 rot_body_to_cam;
+    rot_body_to_cam[0][0] = 0.0;  rot_body_to_cam[0][1] = 0.0;  rot_body_to_cam[0][2] = 1.0;
+    rot_body_to_cam[1][0] = -1.0; rot_body_to_cam[1][1] = 0.0;  rot_body_to_cam[1][2] = 0.0;
+    rot_body_to_cam[2][0] = 0.0;  rot_body_to_cam[2][1] = -1.0; rot_body_to_cam[2][2] = 0.0;
+    tf::Transform body_to_camera;
+    body_to_camera.setOrigin(tf::Vector3(0, 0, 0));
+    body_to_camera.setBasis(rot_body_to_cam);
+    
+    // Compute camera_init -> camera = (camera_init -> body) * (body -> camera)
+    tf::Transform camera_init_to_camera = camera_init_to_body * body_to_camera;
+    
+    // Publish transform: odom_ugv -> camera (since odom_ugv = camera_init)
+    br.sendTransform(tf::StampedTransform(camera_init_to_camera,
+        msg->header.stamp,
+        "odom_ugv",   // parent frame (alias for camera_init)
+        "camera"      // child frame
+    ));
+
+    // Publish odometry message with corrected frame names
+    odom_msg.header.frame_id = "odom_ugv";     // parent frame (world frame)
+    odom_msg.child_frame_id = "camera";        // child frame
+    
+    // Update the pose in the message to represent camera pose in odom_ugv frame
+    tf::Vector3 camera_pos = camera_init_to_camera.getOrigin();
+    tf::Quaternion camera_quat = camera_init_to_camera.getRotation();
+    odom_msg.pose.pose.position.x = camera_pos.x();
+    odom_msg.pose.pose.position.y = camera_pos.y();
+    odom_msg.pose.pose.position.z = camera_pos.z();
+    odom_msg.pose.pose.orientation.x = camera_quat.x();
+    odom_msg.pose.pose.orientation.y = camera_quat.y();
+    odom_msg.pose.pose.orientation.z = camera_quat.z();
+    odom_msg.pose.pose.orientation.w = camera_quat.w();
+    
     // Publish the updated odometry message
     odom_pub.publish(odom_msg);
-
-    // Broadcast corresponding TF
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(
-        odom_msg.pose.pose.position.x,
-        odom_msg.pose.pose.position.y,
-        odom_msg.pose.pose.position.z));
-    tf::Quaternion q(
-        odom_msg.pose.pose.orientation.x,
-        odom_msg.pose.pose.orientation.y,
-        odom_msg.pose.pose.orientation.z,
-        odom_msg.pose.pose.orientation.w);
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform,
-        odom_msg.header.stamp,
-        "odom_ugv",   // parent frame
-        "camera_init"      // child frame
-    ));
 }
 
 
