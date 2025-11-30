@@ -190,11 +190,24 @@ def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_
 
         flag = False
         # TODO(ankit): Currently only comparing length and not width. Now that PCA is used, add width comparison as well
-        print(process_cloud_node_object.length_cutoffs)
-        print(process_cloud_node_object.height_cutoffs)
-        print(length,height)
-        flag = (length > process_cloud_node_object.length_cutoffs[cur_object_class][0] and length < process_cloud_node_object.length_cutoffs[cur_object_class][1]
-                and height > process_cloud_node_object.height_cutoffs[cur_object_class][0] and height < process_cloud_node_object.height_cutoffs[cur_object_class][1])
+
+        # ---------------- DEBUG: final geometric filtering per class ----------------
+        # Class-specific allowed ranges from process_cloud_node_indoor_cls_info.yaml
+        length_min, length_max = process_cloud_node_object.length_cutoffs[cur_object_class]
+        height_min, height_max = process_cloud_node_object.height_cutoffs[cur_object_class]
+
+        print("\n[FILTER][{}] geometric check".format(cur_object_class))
+        print("  allowed length range: [{:.3f}, {:.3f}] m".format(length_min, length_max))
+        print("  allowed height range: [{:.3f}, {:.3f}] m".format(height_min, height_max))
+        print("  computed length: {:.3f} m, height: {:.3f} m".format(length, height))
+
+        flag = (length > length_min and length < length_max
+                and height > height_min and height < height_max)
+
+        if not flag:
+            print("  -> REJECTED by size filter (length / height out of range)")
+        else:
+            print("  -> ACCEPTED as valid {} cuboid".format(cur_object_class))
         if flag:
             current_cube = {}
             current_cube['dimensions'] = np.array([length, width, height])
@@ -209,11 +222,10 @@ def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_
 
 
 def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, confidence_threshold):
-    print("fit_cuboid_indoor")
-    # print("input_pc", input_pc)
-    print("depth_percentile", depth_percentile)
-    print("confidence_threshold", confidence_threshold)
-    print("fit_cuboid_length_thresh", fit_cuboid_length_thresh)
+    print("\n[fit_cuboid_indoor] ------------------------------")
+    print("  depth_percentile:", depth_percentile)
+    print("  confidence_threshold:", confidence_threshold)
+    print("  fit_cuboid_length_thresh:", fit_cuboid_length_thresh)
     # input_pc: x, y, z, intensity, instance_id, confidence, depth
     cloud_mat_3d = input_pc[:, :3]
     instance_ids = input_pc[:, 4]
@@ -241,12 +253,17 @@ def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, conf
                 cur_depth_values, depth_percentile[1])
             print("depth_thres_high", depth_thres_high)
             confidence = np.median(confidence_values[class_member_mask])
+            print("[FILTER][instance {}] median confidence: {:.3f} (threshold: {:.3f})".format(int(k), confidence, confidence_threshold))
             if confidence > confidence_threshold:
-                print("confidence", confidence)
                 valid_pts_mask = np.logical_and(
                     (cur_depth_values > depth_thres_low), (cur_depth_values < depth_thres_high))
                 print("valid_pts_mask", valid_pts_mask)
-                if np.sum(valid_pts_mask) > 0:
+                num_valid_pts = np.sum(valid_pts_mask)
+                if num_valid_pts > 0:
+                    # Require minimum 5 points for reliable cuboid dimension computation
+                    if num_valid_pts < 5:
+                        print("  -> REJECTED: insufficient points ({:d} < 5) for cuboid fitting".format(num_valid_pts))
+                        continue
                     xyzs_instance = cloud_mat_3d[class_member_mask, :]
                     xyzs = xyzs_instance[valid_pts_mask, :]
                     print("xyzs", xyzs)
@@ -268,12 +285,18 @@ def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, conf
                     print("length", length)
                     print("width", width)
                     if length > fit_cuboid_length_thresh:
-                        print("length", length)
+                        print("  -> PASSED initial length threshold ({:.3f} > {:.3f})".format(length, fit_cuboid_length_thresh))
                         xcs.append(xc)
                         ycs.append(yc)
                         lengths.append(length)
                         widths.append(width)
                         raw_points.append(xyzs_valid)
+                    else:
+                        print("  -> REJECTED at initial cuboid fitting: length {:.3f} <= {:.3f}".format(length, fit_cuboid_length_thresh))
+                else:
+                    print("  -> REJECTED: no valid points after depth percentile filter")
+            else:
+                print("  -> REJECTED at confidence filter: {:.3f} <= {:.3f}".format(confidence, confidence_threshold))
 
     assert (len(xcs) == len(ycs) == len(lengths)
             == len(widths) == len(raw_points))

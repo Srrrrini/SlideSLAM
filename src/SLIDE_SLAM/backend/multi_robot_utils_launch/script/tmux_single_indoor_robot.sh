@@ -26,6 +26,11 @@ fi
 
 SETUP_ROS_STRING="export ROS_MASTER_URI=http://localhost:11311"
 
+# Create log directory for tmux pane outputs
+LOG_DIR="/opt/slideslam_docker_ws/tmux_logs"
+mkdir -p $LOG_DIR
+echo "Logging tmux panes to: $LOG_DIR"
+
 # Make mouse useful in copy mode
 tmux setw -g mouse on
 
@@ -49,28 +54,58 @@ tmux split-window -v -t $SESSION_NAME:1.1
 
 tmux select-layout -t $SESSION_NAME:1 tiled
 
+# Start logging for all panes in window 1
+for pane in {0..5}; do
+    tmux pipe-pane -t $SESSION_NAME:1.$pane -o "cat >> $LOG_DIR/pane_1_${pane}.log"
+done
+
 # Launch your 6 processes
 tmux send-keys -t $SESSION_NAME:1.0 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller rgb_segmentation_f250.launch" Enter
 tmux send-keys -t $SESSION_NAME:1.1 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/odom_ugv" Enter
-tmux send-keys -t $SESSION_NAME:1.2 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test.launch enable_rviz:=true" Enter
+tmux send-keys -t $SESSION_NAME:1.2 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test.launch enable_rviz:=false" Enter
 tmux send-keys -t $SESSION_NAME:1.3 "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch process_cloud_node_rgbd_indoor_with_ns.launch odom_topic:=/odom_ugv robot_name:=robot0" Enter
 tmux send-keys -t $SESSION_NAME:1.4 "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch run_flio_with_driver.launch" Enter
 tmux send-keys -t $SESSION_NAME:1.5 "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
 
-# --- SECOND WINDOW: 2 panes ---
+# --- SECOND WINDOW: 3 panes (added bridge node) ---
 tmux new-window -t $SESSION_NAME -n "Extra"
+tmux split-window -v -t $SESSION_NAME:2.0
 tmux split-window -v -t $SESSION_NAME:2.0
 tmux select-layout -t $SESSION_NAME:2 even-vertical
 
-# Launch 2 more processes
-tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 10; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE --topics /spot_image /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points" Enter
+# Start logging for panes in window 2
+tmux pipe-pane -t $SESSION_NAME:2.0 -o "cat >> $LOG_DIR/pane_2_0.log"
+tmux pipe-pane -t $SESSION_NAME:2.1 -o "cat >> $LOG_DIR/pane_2_1.log"
+tmux pipe-pane -t $SESSION_NAME:2.2 -o "cat >> $LOG_DIR/pane_2_2.log"
+
+# Launch 3 processes
+tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 115 --topics /spot_image /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points" Enter
 # tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 105 --topics /spot/odom /ouster/points /spot_image /spot/odom:=/Odometry /ouster/points:=/os_node/points" Enter
 
 # tmux send-keys -t $SESSION_NAME:2.1 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test_LiDAR.launch enable_rviz:=true" Enter
 tmux send-keys -t $SESSION_NAME:2.1 "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
 
+# Bridge node to convert SLIDE_SLAM object poses to map_manager format
+# Includes: odom relay (publishes /odom_ugv to /odom_ugv and /odom_uav) + object pose bridge
+# Note: Requires map_manager message types to be built in SLIDE_SLAM workspace
+tmux send-keys -t $SESSION_NAME:2.2 "$SETUP_ROS_STRING; sleep 5; roslaunch object_modeller map_manager_bridge.launch" Enter
+
 # Optional: return focus to main window
 tmux select-window -t $SESSION_NAME:1
+
+# Print log locations
+echo ""
+echo "=========================================="
+echo "Tmux session '$SESSION_NAME' started!"
+echo "All pane outputs are being logged to:"
+echo "  $LOG_DIR/"
+echo ""
+echo "Log files:"
+echo "  Window 1 (Main): pane_1_0.log through pane_1_5.log"
+echo "  Window 2 (Extra): pane_2_0.log, pane_2_1.log, pane_2_2.log (map_manager bridge)"
+echo ""
+echo "View logs with: tail -f $LOG_DIR/pane_1_3.log"
+echo "=========================================="
 
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true; rosbag play ugv_yolo_duplicated.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /depth_ugv /depth_ugv1 /rgb_ugv /depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /rgb_ugv:=/robot0/camera/color/image_raw /depth_ugv1:=/robot0/camera/depth/image_rect_raw" Enter
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR && rosbag play test1.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv depth_ugv1 /camera_front/rgb_ugv /camera_front/depth_ugv depth_ugv1:=/robot0/camera/aligned_depth_to_color/image_raw /camera_front/rgb_ugv:=/robot0/camera/color/image_raw /camera_front/depth_ugv:=/robot0/camera/depth/image_rect_raw" Enter

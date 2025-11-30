@@ -1,0 +1,21 @@
+<launch>
+    <!-- Odometry relay: subscribes to /Odometry (source from faster-lio) and republishes to /odom_ugv, /odom_uav, and /spot/odom -->
+    <!-- Subscribe directly from source to avoid feedback loops and ensure stability -->
+    <node 
+        pkg="object_modeller" 
+        type="odom_relay.py" 
+        name="odom_relay" 
+        output="screen">
+        <param name="input_topic" value="/Odometry" />
+        <rosparam param="output_topics">["/odom_ugv", "/odom_uav", "/spot/odom","/spot_Odometry"]</rosparam>
+    </node>
+    
+    <!-- Bridge node to convert SLIDE_SLAM object poses to map_manager format -->
+    <node 
+        pkg="object_modeller" 
+        type="slide_slam_to_map_manager_bridge.py" 
+        name="slide_slam_to_map_manager_bridge" 
+        output="screen"
+    />
+</launch>
+

@@ -11,7 +11,8 @@
 chair:
   id: 1
   color: [1.0, 0.0, 0.0] # Red Chair
-  length_cutoff: [0.2, 6.0]
+  # Lowered minimum length from 0.2 to 0.1 to allow objects that pass initial filtering (0.05m) to accumulate and be accepted
+  length_cutoff: [0.1, 6.0]
   height_cutoff: [0, 6.0]
   mesh_model_path: "package://sloam/resource/chair.stl"
   mesh_model_scale: 1
