@@ -23,6 +23,9 @@ class OdomRelay:
         input_topic = rospy.get_param('~input_topic', '/Odometry')
         output_topics = rospy.get_param('~output_topics', ['/odom_ugv', '/odom_uav', '/spot/odom'])
         
+        # Target frame for frame_id transformation (default: map)
+        self.target_frame = rospy.get_param('~target_frame', None)
+        
         # If output_topics is a string, convert to list
         if isinstance(output_topics, str):
             output_topics = [output_topics]
@@ -47,28 +50,24 @@ class OdomRelay:
         rospy.loginfo("Odometry relay initialized:")
         rospy.loginfo("  Subscribing to: %s (source odometry)", input_topic)
         rospy.loginfo("  Publishing to: %s", ', '.join(output_topics))
+        if self.target_frame:
+            rospy.loginfo("  Transforming frame_id from 'camera_init' to '%s'", self.target_frame)
     
     def odom_callback(self, msg):
         """
         Relay odometry message to all output topics.
-        Preserves the original message structure but may adjust frame_ids for compatibility.
+        Transforms frame_id from camera_init to map if target_frame is set.
         """
         # Create a copy to avoid modifying the original message
         msg_copy = copy.deepcopy(msg)
         
+        # Transform frame_id if target_frame is specified
+        if self.target_frame and msg_copy.header.frame_id == "camera_init":
+            msg_copy.header.frame_id = self.target_frame
+        
         # Publish to each output topic
         for topic, pub in self.odom_pubs.items():
-            # For /spot/odom, ensure frame_id compatibility with map_manager
-            if topic == '/spot/odom':
-                # Map manager expects spot/odom to have frame_id matching its config
-                # Keep original frame_id but ensure it's correct
-                output_msg = copy.deepcopy(msg_copy)
-                # Faster-lio uses "camera_init" as frame_id, which should be fine
-                # But map_manager might expect "odom" - we'll preserve original
-                pub.publish(output_msg)
-            else:
-                # For other topics, publish as-is
-                pub.publish(msg_copy)
+            pub.publish(msg_copy)
 
 
 if __name__ == '__main__':

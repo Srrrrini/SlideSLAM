@@ -10,9 +10,11 @@ expected by map_manager, without modifying the SLIDE_SLAM pipeline.
 """
 
 import rospy
+import tf2_ros
+import tf2_geometry_msgs
+from geometry_msgs.msg import TransformStamped, PointStamped, Point
 from visualization_msgs.msg import MarkerArray, Marker
 from map_manager.msg import semanticObjArrayMsg, semanticObjMsg
-from geometry_msgs.msg import Point
 
 
 class SlideSlamToMapManagerBridge:
@@ -26,6 +28,14 @@ class SlideSlamToMapManagerBridge:
             'tv': 3,
             # Add more classes as needed
         }
+        
+        # TF buffer and listener for frame transformations
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+        
+        # Source and target frames
+        self.source_frame = rospy.get_param('~source_frame', 'camera_init')
+        self.target_frame = rospy.get_param('~target_frame', 'map')
         
         # Publisher for map_manager
         self.semantic_obj_pub = rospy.Publisher(
@@ -46,6 +56,7 @@ class SlideSlamToMapManagerBridge:
         rospy.loginfo("Bridge node initialized:")
         rospy.loginfo("  Subscribing to: /robot0/chair_cuboids")
         rospy.loginfo("  Publishing to: /semantic_objects")
+        rospy.loginfo("  Transforming from frame: %s to frame: %s", self.source_frame, self.target_frame)
         rospy.loginfo("  Class mappings: %s", self.class_to_label_id)
     
     def marker_callback(self, marker_array_msg):
@@ -82,12 +93,40 @@ class SlideSlamToMapManagerBridge:
             semantic_obj = semanticObjMsg()
             semantic_obj.label_id = label_id
             
-            # Extract position from marker pose
-            semantic_obj.position = [
-                marker.pose.position.x,
-                marker.pose.position.y,
-                marker.pose.position.z
-            ]
+            # Transform position from source frame (camera_init) to target frame (map)
+            try:
+                # Create a PointStamped for transformation
+                point_in_source = PointStamped()
+                point_in_source.header.frame_id = marker.header.frame_id  # Usually "camera_init"
+                point_in_source.header.stamp = marker.header.stamp if marker.header.stamp.to_sec() > 0 else rospy.Time.now()
+                point_in_source.point = marker.pose.position
+                
+                # Lookup transform from source to target frame
+                transform = self.tf_buffer.lookup_transform(
+                    self.target_frame,
+                    point_in_source.header.frame_id,
+                    rospy.Time(0),  # Use latest available transform
+                    rospy.Duration(1.0)  # 1 second timeout
+                )
+                
+                # Transform the point to target frame using tf2_geometry_msgs
+                point_in_target = tf2_geometry_msgs.do_transform_point(point_in_source, transform)
+                
+                # Extract transformed position
+                semantic_obj.position = [
+                    point_in_target.point.x,
+                    point_in_target.point.y,
+                    point_in_target.point.z
+                ]
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+                rospy.logwarn_throttle(5, "TF transform from %s to %s failed: %s. Using original position.", 
+                                      marker.header.frame_id, self.target_frame, str(e))
+                # Fallback: use original position if transform fails
+                semantic_obj.position = [
+                    marker.pose.position.x,
+                    marker.pose.position.y,
+                    marker.pose.position.z
+                ]
             
             # Extract size from marker scale
             # Note: marker.scale is Vector3 (x, y, z) representing dimensions
