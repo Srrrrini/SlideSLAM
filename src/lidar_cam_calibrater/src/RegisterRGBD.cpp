@@ -25,9 +25,12 @@ RegisterRGBD::RegisterRGBD(ros::NodeHandle &node){
     spot_image_sub = it.subscribe(spot_image_topic, 1, &RegisterRGBD::spotImageCallback, this);
     rgb_ugv_pub = it.advertise(rgb_ugv_topic, 1);
     
-    // Odom subscriber and publisher
+    // Odom subscriber and publishers (publish to multiple topics for map_manager compatibility)
     odom_sub = node.subscribe(spot_odom_topic, 100, &RegisterRGBD::odomCallback, this);
     odom_pub = node.advertise<nav_msgs::Odometry>(odom_ugv_topic, 100);
+    odom_uav_pub = node.advertise<nav_msgs::Odometry>("/odom_uav", 100);
+    spot_odom_pub = node.advertise<nav_msgs::Odometry>("/spot/odom", 100);
+    spot_odometry_pub = node.advertise<nav_msgs::Odometry>("/spot_Odometry", 100);
 
     lidar_pointcloud_sub.subscribe(node, "/os_node/points",100); 
     stitched_image_sub.subscribe(node, "/spot_image",100);
@@ -159,8 +162,11 @@ void RegisterRGBD::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     // No need to transform - it's already camera_init -> body
     // Just update frame IDs in the message header
     
-    // Publish the updated odometry message
-    odom_pub.publish(odom_msg);
+    // Publish the updated odometry message to all required topics
+    odom_pub.publish(odom_msg);           // /odom_ugv
+    odom_uav_pub.publish(odom_msg);       // /odom_uav
+    spot_odom_pub.publish(odom_msg);      // /spot/odom
+    spot_odometry_pub.publish(odom_msg);  // /spot_Odometry
 }
 
 

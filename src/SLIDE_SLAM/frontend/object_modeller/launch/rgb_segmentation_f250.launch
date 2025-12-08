@@ -7,6 +7,20 @@
 
     <node name="rgb_sem_segmentation" pkg="object_modeller" type="detect.py" output="screen" ns="$(arg robot_name)">
 
+        <!-- GPU/CPU toggle: set to true once PyTorch/CUDA versions are compatible -->
+        <param name="~use_gpu" value="false"/>
+        
+        <!-- CPU optimization: number of threads to use for inference (default: 8) -->
+        <param name="~cpu_threads" value="12"/>
+        
+        <!-- YOLO model selection: 
+             yolov8n-seg.pt = nano (fastest, ~5-10x faster than x, lower accuracy)
+             yolov8s-seg.pt = small (fast, ~3-5x faster than x, good accuracy)
+             yolov8m-seg.pt = medium (balanced, ~2-3x faster than x)
+             yolov8x-seg.pt = extra-large (slowest, best accuracy) [ORIGINAL]
+        -->
+        <param name="~yolo_model" value="yolov8n-seg.pt"/>
+        
         <param name="~sim" value="false"/>
         <param name="~desired_rate" value="2"/>
         <param name="~confidence_threshold" value="0.4"/>

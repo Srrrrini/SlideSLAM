@@ -3,17 +3,8 @@
     <node pkg="tf2_ros" type="static_transform_publisher" name="camera_init_to_map_tf" 
           args="0 0 0 0 0 0 camera_init map" />
     
-    <!-- Odometry relay: subscribes to /Odometry (source from faster-lio) and republishes to /odom_ugv, /odom_uav, and /spot/odom -->
-    <!-- Subscribe directly from source to avoid feedback loops and ensure stability -->
-    <node 
-        pkg="object_modeller" 
-        type="odom_relay.py" 
-        name="odom_relay" 
-        output="screen">
-        <param name="input_topic" value="/Odometry" />
-        <rosparam param="output_topics">["/odom_ugv", "/odom_uav", "/spot/odom","/spot_Odometry"]</rosparam>
-        <param name="target_frame" value="map" />
-    </node>
+    <!-- REMOVED: odom_relay.py - odometry relay now handled by register_node -->
+    <!-- register_node publishes to: /odom_ugv, /odom_uav, /spot/odom, /spot_Odometry -->
     
     <!-- Bridge node to convert SLIDE_SLAM object poses to map_manager format -->
     <node 
@@ -40,15 +31,23 @@
         <param name="image_height" value="720" />
     </node>
     
+    <!-- OPTIMIZED: Use topic_tools/relay with larger queue_size to reduce latency -->
     <!-- Depth image relay: map_manager needs depth image synchronized with detections -->
+    <!-- Use aligned_depth_to_color which is aligned to the color image used by YOLO -->
     <node pkg="topic_tools" type="relay" name="depth_relay" 
-          args="/robot0/camera/aligned_depth_to_color/image_raw /depth_uav" output="screen"/>
+          args="/robot0/camera/aligned_depth_to_color/image_raw /depth_uav" output="screen" respawn="false">
+        <param name="lazy" value="false"/>
+    </node>
     
     <!-- Point cloud relay: map_manager expects /point_cloud_uav for range sensing -->
     <node pkg="topic_tools" type="relay" name="pointcloud_relay" 
-          args="/cloud_registered /point_cloud_uav" output="screen"/>
+          args="/cloud_registered /point_cloud_uav" output="screen" respawn="false">
+        <param name="lazy" value="false"/>
+    </node>
     
     <!-- YOLO visualization relay: RViz expects /yolo/visualization -->
     <node pkg="topic_tools" type="relay" name="yolo_viz_relay" 
-          args="/robot0/sem_detection/detections_image /yolo/visualization" output="screen"/>
+          args="/robot0/sem_detection/detections_image /yolo/visualization" output="screen" respawn="false">
+        <param name="lazy" value="false"/>
+    </node>
 </launch>

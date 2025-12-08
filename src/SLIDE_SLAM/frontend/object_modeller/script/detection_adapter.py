@@ -12,6 +12,7 @@ and publishes standard ROS detection messages.
 
 import rospy
 import numpy as np
+import cv2
 from sensor_msgs.msg import PointCloud2, Image
 from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D, ObjectHypothesisWithPose
 from geometry_msgs.msg import Pose2D, Point
@@ -33,20 +34,28 @@ class DetectionAdapter:
         self.image_width = rospy.get_param('~image_width', 1280)
         self.image_height = rospy.get_param('~image_height', 720)
         
-        # Subscriber
+        # Subscriber (queue_size=1 to process only latest, drop old messages)
         self.pc_sub = rospy.Subscriber(
             self.input_pointcloud_topic,
             PointCloud2,
             self.pointcloud_callback,
-            queue_size=1
+            queue_size=1,
+            buff_size=2**24  # 16MB buffer to prevent message loss
         )
         
-        # Publisher
+        # Publishers
         self.detection_pub = rospy.Publisher(
             self.output_detection_topic,
             Detection2DArray,
-            queue_size=1
+            queue_size=1  # Latest only
         )
+        
+        # Processing stats
+        self.last_process_time = rospy.Time.now()
+        self.process_count = 0
+        
+        # CV Bridge for image conversion
+        self.bridge = CvBridge()
         
         rospy.loginfo(f"Detection adapter initialized:")
         rospy.loginfo(f"  Input:  {self.input_pointcloud_topic}")
@@ -59,8 +68,17 @@ class DetectionAdapter:
         Process incoming point cloud with semantic labels and extract 2D bounding boxes.
         
         Expected fields: x, y, z, intensity (label_id), id (instance_id), confidence
+        
+        OPTIMIZED: Skip processing if callback rate is too high (< 100ms between calls)
         """
         try:
+            # Throttle processing to max 10Hz to avoid CPU overload
+            current_time = rospy.Time.now()
+            time_since_last = (current_time - self.last_process_time).to_sec()
+            if time_since_last < 0.1:  # Less than 100ms since last processing
+                return  # Skip this frame
+            self.last_process_time = current_time
+            self.process_count += 1
             # Read point cloud fields
             pc_data = []
             for point in pc2.read_points(pc_msg, field_names=("x", "y", "z", "intensity", "id", "confidence"), skip_nans=True):
@@ -163,6 +181,23 @@ class DetectionAdapter:
                 hypothesis_with_pose.id = int(label_id)  # Class ID as int64
                 hypothesis_with_pose.score = avg_confidence
                 detection.results.append(hypothesis_with_pose)
+                
+                # Create binary mask image for this instance
+                # Map_manager requires this mask to filter depth pixels
+                mask_image = np.zeros((pc_msg.height, pc_msg.width), dtype=np.uint8)
+                mask_image[inst_mask_2d] = 255  # Set instance pixels to 255 (white)
+                
+                # Debug: Count white pixels
+                white_pixel_count = np.sum(mask_image == 255)
+                rospy.loginfo_throttle(3, f"Detection {int(inst_id)}: bbox=({center_x:.1f},{center_y:.1f}), size=({size_x:.1f}x{size_y:.1f}), mask_pixels={white_pixel_count}")
+                
+                # Convert mask to ROS Image message
+                try:
+                    detection.source_img = self.bridge.cv2_to_imgmsg(mask_image, encoding="mono8")
+                    detection.source_img.header = pc_msg.header
+                except Exception as e:
+                    rospy.logwarn(f"Failed to convert mask to image: {e}")
+                    continue
                 
                 # Add to detections array
                 detections_msg.detections.append(detection)

@@ -17,6 +17,10 @@ class Inference:
     def __init__(self, node_name):
         self.node_name = node_name
         ################################ IMPORTANT PARAMS ################################
+        # GPU/CPU toggle - set to False until PyTorch version is updated to match CUDA
+        self.use_gpu = rospy.get_param(
+            "/"+self.node_name+"/use_gpu", default=False)  # Set to True when PyTorch/CUDA compatible
+        
         self.desired_frequency = rospy.get_param(
             "/"+self.node_name+"/desired_frequency", default=2)  # 0 means no limit
         num_cpu_threads = rospy.get_param(
@@ -35,12 +39,15 @@ class Inference:
         namespace = rospy.get_param(
             "/"+self.node_name+"/namespace", default="/os_node")
         print(f"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        print(f"[infer_node] DEVICE: {'GPU (CUDA)' if self.use_gpu else 'CPU'}")
+        if not self.use_gpu:
+            print(f"[infer_node] GPU disabled. To enable: set use_gpu param to True after updating PyTorch/CUDA versions")
         print(f"[infer_node] desired frequency for inference is: ", self.desired_frequency,
               " Hz. If its a positive value, some point clouds will be skipped for inference. Set to 0 to run inference on every point cloud.")
         print(f"[infer_node] using namespace: ", namespace,
               " to publish segmented point cloud (should be /quadrotor if running on the robot, otherwise /os_node)")
         print(f"[infer_node] setting number of CPU threads to: ", num_cpu_threads,
-              " for Pytorch CPU inference (should be small if you are running on the robot)")
+              " for Pytorch inference (used when running on CPU)")
         print(f"[infer_node] setting range threshold for final segmented point cloud (for cutting off all far-away points) to: ", self.range_threshold,
               " meters. Those cut-off points will be set to have coordinate: ", self.out_of_range_pts_default_position)
         print(f"[infer_node] model directory is: ", model_directory)
@@ -49,7 +56,8 @@ class Inference:
 
         self.last_called_stamp = None
 
-        device = 'cpu' 
+        # Set device based on use_gpu parameter
+        device = 'cuda' if self.use_gpu else 'cpu'
         self.load_obj_ = Load_Model(model_directory, device=device)
         self.model_ = self.load_obj_.load_model()
         self.scan_obj_ = LaserScan(project=True,
@@ -59,18 +67,19 @@ class Inference:
                                    fov_down=self.load_obj_.arch_configs["dataset"]["sensor"]["fov_down"],
                                    range_threshold=self.range_threshold)
 
-        # Set model cuda parameters
+        # Configure model for GPU or CPU based on parameter
         self.gpu_ = False
-        # if torch.cuda.is_available() and torch.cuda.device_count() > 0 and \
-        #         rospy.get_param("gpu", default=True):
-        #     cudnn.benchmark = True
-        #     cudnn.fastest = True
-        #     self.gpu_ = True
-        #     self.model_.cuda()
-        # else:
-        #     self.model_.cpu()
-        self.model_.cpu()
-        print("[infer_node] Using CPUuuuuuuuuuuuuuuuuuuuu")
+        if self.use_gpu and torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            print("[infer_node] GPU available, enabling CUDA acceleration")
+            cudnn.benchmark = True
+            cudnn.fastest = True
+            self.gpu_ = True
+            self.model_.cuda()
+        else:
+            if self.use_gpu and not torch.cuda.is_available():
+                print("[infer_node] WARNING: use_gpu=True but CUDA not available! Falling back to CPU")
+            print("[infer_node] Using CPU for inference")
+            self.model_.cpu()
 
         # Push model into eval mode
         self.model_.eval()

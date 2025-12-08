@@ -6,6 +6,7 @@ from cv_bridge import CvBridge
 from ultralytics import YOLO
 import message_filters
 import numpy as np
+import torch
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, PointCloud2, PointField
@@ -25,10 +26,42 @@ class sem_detection:
 
         self.prev_time = rospy.Time.now()
         rospack = rospkg.RosPack()
-        self.model_path = rospack.get_path('object_modeller') + '/models/yolov8x-seg.pt'
-        self.yolo = YOLO(self.model_path)
-
+        
+        # Get YOLO model from parameter (configurable via launch file)
+        yolo_model = rospy.get_param('~yolo_model', 'yolov8x-seg.pt')
+        self.model_path = rospack.get_path('object_modeller') + '/models/' + yolo_model
+        rospy.loginfo(f"[sem_detection] Using YOLO model: {yolo_model}")
+        
+        # Original model (commented out - now configured via launch parameter):
+        # self.model_path = rospack.get_path('object_modeller') + '/models/yolov8x-seg.pt'
+        
         ##################################### PARAMS / CONFIG #####################################
+        # GPU/CPU toggle
+        self.use_gpu = rospy.get_param('~use_gpu', False)
+        
+        # CPU optimization: use more threads when running on CPU
+        if not self.use_gpu:
+            num_threads = rospy.get_param('~cpu_threads', 8)  # Use 8 threads by default
+            torch.set_num_threads(num_threads)
+            import cv2
+            cv2.setNumThreads(num_threads)
+            rospy.loginfo(f"[sem_detection] Set CPU threads to {num_threads} for PyTorch and OpenCV")
+        
+        # Set device based on use_gpu parameter
+        if self.use_gpu:
+            # Check if CUDA is actually available
+            if torch.cuda.is_available():
+                self.device = '0'  # First GPU
+                rospy.loginfo("[sem_detection] Using GPU for YOLO inference")
+            else:
+                self.device = 'cpu'
+                rospy.logwarn("[sem_detection] GPU requested but CUDA unavailable - using CPU")
+        else:
+            self.device = 'cpu'
+            rospy.loginfo("[sem_detection] Using CPU for YOLO inference")
+        
+        self.yolo = YOLO(self.model_path)
+        
         self.sim = False
         # RealSense D435i camera intrinsics
         self.color_fx = rospy.get_param("~fx", 603.7166748046875)
@@ -135,7 +168,7 @@ class sem_detection:
         # 1. detect semantics
         # Perform instance segmentation using YOLOv8
         # TODO(ankit): Edited this
-        detections = self.yolo.predict(color_img,  show=False, device='cpu')
+        detections = self.yolo.predict(color_img, show=False, device=self.device, verbose=False)
 
         # 2. open img_size * 2 array save class and id
         # pc_pos = np.zeros([color_img.shape[0], color_img.shape[1], 3])
@@ -288,7 +321,7 @@ class sem_detection:
         
         # 1. detect semantics
         # Perform instance segmentation using YOLOv8
-        detections = self.yolo.predict(color_img,  show=False, device='cpu')
+        detections = self.yolo.predict(color_img, show=False, device=self.device, verbose=False)
 
         # 2. open img_size * 2 array save class and id
         label = np.zeros([color_img.shape[0], color_img.shape[1]])

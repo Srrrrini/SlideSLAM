@@ -6,6 +6,7 @@ from cv_bridge import CvBridge
 from ultralytics import YOLO
 import message_filters
 import numpy as np
+import torch
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, PointCloud2, PointField
@@ -25,9 +26,34 @@ class sem_detection:
         self.prev_time = rospy.Time.now()
         rospack = rospkg.RosPack()
         self.model_path = rospack.get_path('object_modeller') + '/models/yolov8x-seg.pt'
-        self.yolo = YOLO(self.model_path)
-
+        
         ##################################### PARAMS / CONFIG #####################################
+        # GPU/CPU toggle - set to False until PyTorch version is updated to match CUDA
+        self.use_gpu = rospy.get_param('~use_gpu', False)  # Set to True when PyTorch/CUDA compatible
+        
+        # Check CUDA availability
+        cuda_available = torch.cuda.is_available()
+        cuda_device_count = torch.cuda.device_count() if cuda_available else 0
+        
+        rospy.loginfo("="*80)
+        rospy.loginfo("[sem_detection] DEVICE CONFIGURATION:")
+        rospy.loginfo(f"[sem_detection]   Requested use_gpu: {self.use_gpu}")
+        rospy.loginfo(f"[sem_detection]   CUDA available: {cuda_available}")
+        rospy.loginfo(f"[sem_detection]   CUDA device count: {cuda_device_count}")
+        if cuda_available and cuda_device_count > 0:
+            rospy.loginfo(f"[sem_detection]   GPU Name: {torch.cuda.get_device_name(0)}")
+            rospy.loginfo(f"[sem_detection]   PyTorch CUDA version: {torch.version.cuda}")
+        
+        # Initialize YOLO with device selection
+        self.device = 'cuda' if (self.use_gpu and cuda_available) else 'cpu'
+        if self.use_gpu and not cuda_available:
+            rospy.logwarn("[sem_detection] WARNING: GPU requested but CUDA not available! Using CPU instead")
+            rospy.logwarn("[sem_detection] This is likely due to PyTorch/CUDA version mismatch")
+        
+        self.yolo = YOLO(self.model_path)
+        rospy.loginfo(f"[sem_detection] ✓ YOLO model will run on: {self.device.upper()}")
+        rospy.loginfo("="*80)
+        
         self.sim = False
         # RealSense D435i camera intrinsics
         self.color_fx = rospy.get_param("~fx", 603.7166748046875)
@@ -122,7 +148,11 @@ class sem_detection:
         # 1. detect semantics
         # Perform instance segmentation using YOLOv8
         # TODO(ankit): Edited this
-        detections = self.yolo.predict(color_img,  show=False)
+        # Log device usage on first inference
+        if not hasattr(self, '_logged_first_inference'):
+            rospy.loginfo(f"[sem_detection] Running first inference on device: {self.device}")
+            self._logged_first_inference = True
+        detections = self.yolo.predict(color_img, show=False, device=self.device, verbose=False)
 
         # 2. open img_size * 2 array save class and id
         # pc_pos = np.zeros([color_img.shape[0], color_img.shape[1], 3])
@@ -223,7 +253,7 @@ class sem_detection:
         
         # 1. detect semantics
         # Perform instance segmentation using YOLOv8
-        detections = self.yolo.predict(color_img,  show=False)
+        detections = self.yolo.predict(color_img, show=False, device=self.device, verbose=False)
 
         # 2. open img_size * 2 array save class and id
         label = np.zeros([color_img.shape[0], color_img.shape[1]])

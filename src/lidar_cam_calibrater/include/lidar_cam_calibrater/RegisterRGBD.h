@@ -48,9 +48,12 @@ private:
     image_transport::Subscriber spot_image_sub;
     image_transport::Publisher rgb_ugv_pub;
     
-    // Odom subscriber and publisher
+    // Odom subscriber and publishers (publish to multiple topics)
     ros::Subscriber odom_sub;
-    ros::Publisher odom_pub;
+    ros::Publisher odom_pub;              // /odom_ugv
+    ros::Publisher odom_uav_pub;          // /odom_uav
+    ros::Publisher spot_odom_pub;         // /spot/odom
+    ros::Publisher spot_odometry_pub;     // /spot_Odometry
 
     message_filters::Subscriber<sensor_msgs::PointCloud2>lidar_pointcloud_sub;
     message_filters::Subscriber<sensor_msgs::Image> stitched_image_sub;

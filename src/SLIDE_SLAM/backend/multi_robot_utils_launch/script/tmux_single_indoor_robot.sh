@@ -62,10 +62,9 @@ done
 # Launch your 6 processes
 tmux send-keys -t $SESSION_NAME:1.0 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller rgb_segmentation_f250.launch" Enter
 tmux send-keys -t $SESSION_NAME:1.1 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller sync_semantic_measurements.launch robot_name:=robot0 odom_topic:=/odom_ugv" Enter
-tmux send-keys -t $SESSION_NAME:1.2 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test.launch enable_rviz:=false" Enter
+tmux send-keys -t $SESSION_NAME:1.2 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test.launch enable_rviz:=true" Enter
 tmux send-keys -t $SESSION_NAME:1.3 "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch process_cloud_node_rgbd_indoor_with_ns.launch odom_topic:=/odom_ugv robot_name:=robot0" Enter
 tmux send-keys -t $SESSION_NAME:1.4 "$SETUP_ROS_STRING; sleep 2; roslaunch scan2shape_launch run_flio_with_driver.launch" Enter
-tmux send-keys -t $SESSION_NAME:1.5 "$SETUP_ROS_STRING; sleep 2; rosrun lidar_cam_calibrater register_node" Enter
 
 # --- SECOND WINDOW: 3 panes (added bridge node) ---
 tmux new-window -t $SESSION_NAME -n "Extra"
