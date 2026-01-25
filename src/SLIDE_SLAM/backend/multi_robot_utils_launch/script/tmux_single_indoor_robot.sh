@@ -26,10 +26,14 @@ fi
 
 SETUP_ROS_STRING="export ROS_MASTER_URI=http://localhost:11311"
 
-# Create log directory for tmux pane outputs
+# Create log directory (overwrite each run)
 LOG_DIR="/opt/slideslam_docker_ws/tmux_logs"
 mkdir -p $LOG_DIR
+# Clear old logs
+rm -f $LOG_DIR/*.log
+echo "==========================================="
 echo "Logging tmux panes to: $LOG_DIR"
+echo "==========================================="
 
 # Make mouse useful in copy mode
 tmux setw -g mouse on
@@ -54,10 +58,13 @@ tmux split-window -v -t $SESSION_NAME:1.1
 
 tmux select-layout -t $SESSION_NAME:1 tiled
 
-# Start logging for all panes in window 1
-for pane in {0..5}; do
-    tmux pipe-pane -t $SESSION_NAME:1.$pane -o "cat >> $LOG_DIR/pane_1_${pane}.log"
-done
+# Start logging for all panes in window 1 with descriptive names
+tmux pipe-pane -t $SESSION_NAME:1.0 -o "cat > $LOG_DIR/yolo_detection.log"
+tmux pipe-pane -t $SESSION_NAME:1.1 -o "cat > $LOG_DIR/sync_semantic.log"
+tmux pipe-pane -t $SESSION_NAME:1.2 -o "cat > $LOG_DIR/sloam.log"
+tmux pipe-pane -t $SESSION_NAME:1.3 -o "cat > $LOG_DIR/process_cloud_node.log"
+tmux pipe-pane -t $SESSION_NAME:1.4 -o "cat > $LOG_DIR/flio.log"
+tmux pipe-pane -t $SESSION_NAME:1.5 -o "cat > $LOG_DIR/pane_1_5.log"
 
 # Launch your 6 processes
 tmux send-keys -t $SESSION_NAME:1.0 "$SETUP_ROS_STRING; sleep 2; roslaunch object_modeller rgb_segmentation_f250.launch" Enter
@@ -72,10 +79,10 @@ tmux split-window -v -t $SESSION_NAME:2.0
 tmux split-window -v -t $SESSION_NAME:2.0
 tmux select-layout -t $SESSION_NAME:2 even-vertical
 
-# Start logging for panes in window 2
-tmux pipe-pane -t $SESSION_NAME:2.0 -o "cat >> $LOG_DIR/pane_2_0.log"
-tmux pipe-pane -t $SESSION_NAME:2.1 -o "cat >> $LOG_DIR/pane_2_1.log"
-tmux pipe-pane -t $SESSION_NAME:2.2 -o "cat >> $LOG_DIR/pane_2_2.log"
+# Start logging for panes in window 2 with descriptive names
+tmux pipe-pane -t $SESSION_NAME:2.0 -o "cat > $LOG_DIR/rosbag_play.log"
+tmux pipe-pane -t $SESSION_NAME:2.1 -o "cat > $LOG_DIR/register_node.log"
+tmux pipe-pane -t $SESSION_NAME:2.2 -o "cat > $LOG_DIR/pane_2_2.log"
 
 # Launch 3 processes
 tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 115 --topics /spot_image /ouster/imu /ouster/points ouster/imu:=/os_node/imu /ouster/points:=/os_node/points" Enter
@@ -96,14 +103,11 @@ tmux select-window -t $SESSION_NAME:1
 echo ""
 echo "=========================================="
 echo "Tmux session '$SESSION_NAME' started!"
-echo "All pane outputs are being logged to:"
-echo "  $LOG_DIR/"
+echo "Logs at: $LOG_DIR/"
 echo ""
-echo "Log files:"
-echo "  Window 1 (Main): pane_1_0.log through pane_1_5.log"
-echo "  Window 2 (Extra): pane_2_0.log, pane_2_1.log, pane_2_2.log (map_manager bridge)"
-echo ""
-echo "View logs with: tail -f $LOG_DIR/pane_1_3.log"
+echo "Key logs:"
+echo "  yolo_detection.log      - YOLO detections"
+echo "  process_cloud_node.log  - Point cloud processing"
 echo "=========================================="
 
 # tmux send-keys -t $SESSION_NAME "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosparam set /use_sim_time true; rosbag play ugv_yolo_duplicated.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /odom_ugv /depth_ugv /depth_ugv1 /rgb_ugv /depth_ugv:=/robot0/camera/aligned_depth_to_color/image_raw /rgb_ugv:=/robot0/camera/color/image_raw /depth_ugv1:=/robot0/camera/depth/image_rect_raw" Enter

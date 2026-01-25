@@ -7,6 +7,7 @@ from ultralytics import YOLO
 import message_filters
 import numpy as np
 import torch
+import cv2
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, PointCloud2, PointField
@@ -43,7 +44,6 @@ class sem_detection:
         if not self.use_gpu:
             num_threads = rospy.get_param('~cpu_threads', 8)  # Use 8 threads by default
             torch.set_num_threads(num_threads)
-            import cv2
             cv2.setNumThreads(num_threads)
             rospy.loginfo(f"[sem_detection] Set CPU threads to {num_threads} for PyTorch and OpenCV")
         
@@ -119,6 +119,9 @@ class sem_detection:
         self.pc_pub_ = rospy.Publisher(self.pc_topic, PointCloud2, queue_size=1)
         self.synced_pc_pub_ = rospy.Publisher(self.sync_pc_odom_topic, syncPcOdom, queue_size=1)
         self.detection_image_pub = rospy.Publisher(self.detection_image_topic, Image, queue_size=1)
+        
+        # Publisher for depth image with YOLO bounding boxes overlay (for debugging)
+        self.depth_with_detections_pub = rospy.Publisher('/robot0/sem_detection/depth_with_detections', Image, queue_size=1)
 
 
         # Synchronize the two image topics with a time delay of 0.1 seconds
@@ -144,7 +147,9 @@ class sem_detection:
             if key == "table":
                 self.cls["dining table"] = value["id"]
             else:
-                self.cls[key] = value["id"]        
+                self.cls[key] = value["id"]
+        
+        print(f"[DEBUG] Configured class mapping: {self.cls}")        
 
 
     def rgb_aligned_depth_odom_callback(self, rgb, aligned_depth, odom):
@@ -192,12 +197,38 @@ class sem_detection:
                     cls_str = self.yolo.names[cls_int]
                     # TODO(ankit): Edited here
                     cur_mask = detection.masks.masks[i, :, :].cpu().numpy()
+                    
+                    # Resize mask to match image resolution if needed
+                    if cur_mask.shape != (color_img.shape[0], color_img.shape[1]):
+                        cur_mask = cv2.resize(cur_mask.astype(np.uint8), 
+                                              (color_img.shape[1], color_img.shape[0]),  # (width, height)
+                                              interpolation=cv2.INTER_NEAREST).astype(cur_mask.dtype)
+                        print(f"[DEBUG] Resized mask from {detection.masks.masks[i].shape} to {cur_mask.shape}")
 
                     mask_pos = np.where(cur_mask != 0)
-                    label[mask_pos] = self.get_cls_label(cls_str)
-                    print(cls_str)
+                    assigned_label = self.get_cls_label(cls_str)
+                    label[mask_pos] = assigned_label
+                    print(f"[YOLO] detected: '{cls_str}' -> label={assigned_label} (0=background/ignored)")
                     id[mask_pos] = i+1
                     conf[mask_pos] = float(detection.boxes.conf[i])
+                    
+                    # DEBUG: Check mask location vs depth
+                    if assigned_label > 0 and len(mask_pos[0]) > 0:
+                        mask_rows = mask_pos[0]  # row indices (y)
+                        mask_cols = mask_pos[1]  # col indices (x)
+                        mask_depth_vals = depth_img[mask_pos] * self.depth_scale
+                        
+                        # Get bounding box
+                        box = detection.boxes.xyxy[i].cpu().numpy().astype(int)
+                        x1, y1, x2, y2 = box
+                        bbox_depth = depth_img[y1:y2, x1:x2] * self.depth_scale
+                        bbox_valid = bbox_depth[(bbox_depth > 0.1) & (bbox_depth < 50)]
+                        
+                        print(f"[DEBUG MASK] Mask shape: {cur_mask.shape}, Depth shape: {depth_img.shape}")
+                        print(f"[DEBUG MASK] Mask pixel rows: min={np.min(mask_rows)}, max={np.max(mask_rows)} (image height={depth_img.shape[0]})")
+                        print(f"[DEBUG MASK] Mask pixel cols: min={np.min(mask_cols)}, max={np.max(mask_cols)} (image width={depth_img.shape[1]})")
+                        print(f"[DEBUG MASK] Mask depth values: min={np.min(mask_depth_vals):.2f}, max={np.max(mask_depth_vals):.2f}")
+                        print(f"[DEBUG MASK] BBox [{x1},{y1}]-[{x2},{y2}]: {len(bbox_valid)} valid depth pixels out of {bbox_depth.size}")
         
         # Publish annotated image with bounding boxes overlay
         # The plot() method works even when there are no detections (returns original image)
@@ -208,6 +239,67 @@ class sem_detection:
             self.detection_image_pub.publish(annotated_img_msg)
         except Exception as e:
             rospy.logerr("Error publishing detection image: %s", e)
+        
+        # Publish depth image with YOLO bounding boxes overlay for debugging
+        try:
+            # Normalize depth for visualization (0-255)
+            depth_scaled = depth_img * self.depth_scale
+            
+            # Create color visualization: valid depth = grayscale, invalid = RED
+            depth_viz_color = np.zeros((depth_img.shape[0], depth_img.shape[1], 3), dtype=np.uint8)
+            
+            # Mark invalid depth (>50m) as RED
+            invalid_mask = depth_scaled > 50.0
+            depth_viz_color[invalid_mask] = [0, 0, 255]  # Red for invalid
+            
+            # Valid depth: normalize 0-20m to grayscale
+            valid_mask = ~invalid_mask
+            valid_depth = np.clip(depth_scaled, 0, 20)
+            valid_depth_normalized = (valid_depth / 20.0 * 255).astype(np.uint8)
+            depth_viz_color[valid_mask, 0] = valid_depth_normalized[valid_mask]  # B
+            depth_viz_color[valid_mask, 1] = valid_depth_normalized[valid_mask]  # G
+            depth_viz_color[valid_mask, 2] = valid_depth_normalized[valid_mask]  # R
+            
+            # Draw bounding boxes from YOLO detections
+            if len(detections[0]) != 0:
+                for detection in detections:
+                    for i in range(len(detection.boxes)):
+                        cls_int = int(detection.boxes.cls[i])
+                        cls_str = self.yolo.names[cls_int]
+                        assigned_label = self.get_cls_label(cls_str)
+                        conf_val = float(detection.boxes.conf[i])
+                        
+                        # Get bounding box coordinates
+                        box = detection.boxes.xyxy[i].cpu().numpy().astype(int)
+                        x1, y1, x2, y2 = box
+                        
+                        # Color based on whether it's a valid class (green) or not (red)
+                        if assigned_label > 0:
+                            color = (0, 255, 0)  # Green for valid classes
+                        else:
+                            color = (0, 0, 255)  # Red for ignored classes
+                        
+                        # Draw bounding box
+                        cv2.rectangle(depth_viz_color, (x1, y1), (x2, y2), color, 2)
+                        
+                        # Get depth stats in the bounding box region
+                        roi_depth = depth_scaled[y1:y2, x1:x2]
+                        valid_depth = roi_depth[(roi_depth > 0.1) & (roi_depth < 50)]
+                        if len(valid_depth) > 0:
+                            depth_text = f"{cls_str}: {np.median(valid_depth):.1f}m"
+                        else:
+                            depth_text = f"{cls_str}: NO DEPTH"
+                        
+                        # Draw label with depth info
+                        cv2.putText(depth_viz_color, depth_text, (x1, y1-5), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            
+            depth_with_det_msg = bridge.cv2_to_imgmsg(depth_viz_color, "bgr8")
+            depth_with_det_msg.header = rgb.header
+            self.depth_with_detections_pub.publish(depth_with_det_msg)
+        except Exception as e:
+            rospy.logerr("Error publishing depth with detections: %s", e)
+        
         # Create a grid of pixel coordinates
         # ------------- old pinhole cam 3d reconstruction --------------------------
         # u, v = np.meshgrid(np.arange(depth_img.shape[1]), np.arange(depth_img.shape[0]))
@@ -268,6 +360,26 @@ class sem_detection:
         # --- END: Cylindrical 3D Reconstruction Code ---
 
         # ------------- New lidar depth 3D reconstruction --------------------------
+
+        # DEBUG: Check depth/XYZ values for labeled regions
+        labeled_mask = label > 0
+        if np.sum(labeled_mask) > 0:
+            labeled_depths = depth_img[labeled_mask] * self.depth_scale
+            labeled_xyz = points[labeled_mask]
+            labeled_ranges = np.linalg.norm(labeled_xyz, axis=1)
+            
+            # Count valid vs invalid depth
+            valid_depth_mask = labeled_depths < 50.0  # reasonable max range
+            invalid_depth_count = np.sum(~valid_depth_mask)
+            valid_depth_count = np.sum(valid_depth_mask)
+            
+            print(f"[DEBUG DETECT] Labeled pixels: {np.sum(labeled_mask)}")
+            print(f"[DEBUG DETECT] Valid depth (<50m): {valid_depth_count}, Invalid depth (>=50m): {invalid_depth_count}")
+            if valid_depth_count > 0:
+                valid_depths = labeled_depths[valid_depth_mask]
+                valid_ranges = labeled_ranges[valid_depth_mask]
+                print(f"[DEBUG DETECT] Valid depth range: min={np.min(valid_depths):.3f}, max={np.max(valid_depths):.3f}, median={np.median(valid_depths):.3f}")
+                print(f"[DEBUG DETECT] Valid XYZ range: min={np.min(valid_ranges):.3f}, max={np.max(valid_ranges):.3f}, median={np.median(valid_ranges):.3f}")
 
         # 5. Stack labels, id, conf
         

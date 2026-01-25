@@ -21,3 +21,4 @@ scan2shape/script/max_scale.pkl
 .vscode
 *.png
 tmux_logs/
+vision_msgs/

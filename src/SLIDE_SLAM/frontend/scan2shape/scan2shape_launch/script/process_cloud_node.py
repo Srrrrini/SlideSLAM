@@ -235,6 +235,20 @@ class ProcessCloudNode:
         pc_xyzi_id_conf[:, 4] = ids
         pc_xyzi_id_conf[:, 5] = confs
 
+        # DEBUG: Check what labels are in the received pointcloud
+        unique_labels = np.unique(intensities)
+        non_zero_labels = intensities[intensities > 0]
+        print(f"[DEBUG PCN] Unique labels in pointcloud: {unique_labels}")
+        print(f"[DEBUG PCN] Non-zero label count: {len(non_zero_labels)} / {len(intensities)}")
+        
+        # DEBUG: Check range values of labeled points
+        labeled_mask = pc_xyzi_id_conf[:, 3] > 0
+        if np.sum(labeled_mask) > 0:
+            labeled_xyz = pc_xyzi_id_conf[labeled_mask, :3]
+            labeled_ranges = np.linalg.norm(labeled_xyz, axis=1)
+            print(f"[DEBUG PCN] Labeled points range: min={np.min(labeled_ranges):.3f}, max={np.max(labeled_ranges):.3f}, median={np.median(labeled_ranges):.3f}")
+            print(f"[DEBUG PCN] Labeled points with range > 0.1 and < 40: {np.sum((labeled_ranges >= 0.1) & (labeled_ranges < 40))}")
+        
         print(self.valid_range_threshold)
         # print(pc_xyzi_id_conf)
         # threshold by range. Remove points that are farther away than self.valid_range_threshold
@@ -249,12 +263,21 @@ class ProcessCloudNode:
 
         # apply thresholding
         pc_xyzi_id_conf_thresholded = pc_xyzi_id_conf[valid_indices, :]
+        
+        # DEBUG: Check labeled points AFTER range threshold
+        labeled_after_thresh = np.sum(pc_xyzi_id_conf_thresholded[:, 3] > 0)
+        print(f"[DEBUG PCN] Labeled points AFTER range threshold: {labeled_after_thresh} / {pc_xyzi_id_conf_thresholded.shape[0]}")
 
         # Use odometry and transform point cloud to world frame and then publish it
         points_world_xyzi_id_conf_depth, points_body_xyzi_id_conf = transform_publish_pc(self,
                                                                                          current_raw_timestamp, pc_xyzi_id_conf_thresholded)
-        # print("points_world_xyzi_id_conf_depth", points_world_xyzi_id_conf_depth)
-        # print("points_body_xyzi_id_conf", points_body_xyzi_id_conf)
+        
+        # DEBUG: Check labels after transform
+        if points_world_xyzi_id_conf_depth is not None:
+            unique_labels_after = np.unique(points_world_xyzi_id_conf_depth[:, 3])
+            non_zero_after = np.sum(points_world_xyzi_id_conf_depth[:, 3] > 0)
+            print(f"[DEBUG PCN] Labels AFTER transform: {unique_labels_after}, non-zero: {non_zero_after}")
+        
         if points_world_xyzi_id_conf_depth is None or points_body_xyzi_id_conf is None:
             rospy.logwarn(
                 "Failed to transform point cloud to world frame. Skipping this scan!!!")
@@ -269,21 +292,26 @@ class ProcessCloudNode:
             i =0
             for cur_object_class in self.cls.keys():
                 i += 1
-                print("i", i)
                 # skip background if present
-                # print("cur_object_class", cur_object_class)
                 if cur_object_class == "background":
                     continue
                 cur_class_label = self.cls[cur_object_class]
-                # print("cur_class_label", cur_class_label)
-                # print("points_world_xyzi_id_conf_depth", points_world_xyzi_id_conf_depth[:, 3])
                 pc_world_cur_class = points_world_xyzi_id_conf_depth[
                     points_world_xyzi_id_conf_depth[:, 3] == cur_class_label, :]
-                # print("pc_world_cur_class", pc_world_cur_class)
-                print(points_world_xyzi_id_conf_depth[:, 3] == cur_class_label)
-                # find object instances
-                if pc_world_cur_class.shape[0] == 0:
-                    print("skipping this class")
+                
+                # DEBUG: Show details for each class
+                if pc_world_cur_class.shape[0] > 0:
+                    xyz = pc_world_cur_class[:, :3]
+                    x_range = np.max(xyz[:, 0]) - np.min(xyz[:, 0])
+                    y_range = np.max(xyz[:, 1]) - np.min(xyz[:, 1])
+                    z_range = np.max(xyz[:, 2]) - np.min(xyz[:, 2])
+                    instance_ids = np.unique(pc_world_cur_class[:, 4])
+                    print(f"[DEBUG PCN] Class '{cur_object_class}' (label={cur_class_label}): {pc_world_cur_class.shape[0]} points")
+                    print(f"[DEBUG PCN]   XYZ extent: x={x_range:.2f}m, y={y_range:.2f}m, z={z_range:.2f}m")
+                    print(f"[DEBUG PCN]   Instance IDs: {instance_ids}")
+                    print(f"[DEBUG PCN]   Depth (col6): min={np.min(pc_world_cur_class[:,6]):.2f}, max={np.max(pc_world_cur_class[:,6]):.2f}")
+                else:
+                    print(f"[DEBUG PCN] Class '{cur_object_class}' (label={cur_class_label}): 0 points - skipping")
                     continue
 
                 # Fit cuboids to the semantic instances to start the tracking process

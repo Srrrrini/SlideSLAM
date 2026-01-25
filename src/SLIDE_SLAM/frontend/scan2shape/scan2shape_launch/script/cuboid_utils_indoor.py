@@ -237,36 +237,41 @@ def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, conf
     lengths = []
     widths = []
     raw_points = []
+    print(f"[fit_cuboid_indoor] Unique instance IDs: {unique_labels}")
     for k in unique_labels:
         if k == 0:
-            print("skipping background points")
             continue  # background points or other instances
         class_member_mask = (instance_ids == k)
-        if np.sum(class_member_mask) > 0:
-            # print("class_member_mask", class_member_mask)
+        num_instance_pts = np.sum(class_member_mask)
+        if num_instance_pts > 0:
             cur_depth_values = depth_values[class_member_mask]
-            print("cur_depth_values", cur_depth_values)
-            depth_thres_low = np.percentile(
-                cur_depth_values, depth_percentile[0])
-            print("depth_thres_low", depth_thres_low)
-            depth_thres_high = np.percentile(
-                cur_depth_values, depth_percentile[1])
-            print("depth_thres_high", depth_thres_high)
+            cur_xyz = cloud_mat_3d[class_member_mask, :]
+            
+            # DEBUG: Show instance stats
+            print(f"\n[fit_cuboid_indoor] Instance {int(k)}: {num_instance_pts} points")
+            print(f"  Depth range: min={np.min(cur_depth_values):.2f}, max={np.max(cur_depth_values):.2f}, median={np.median(cur_depth_values):.2f}")
+            print(f"  XYZ extent: x=[{np.min(cur_xyz[:,0]):.2f}, {np.max(cur_xyz[:,0]):.2f}], y=[{np.min(cur_xyz[:,1]):.2f}, {np.max(cur_xyz[:,1]):.2f}], z=[{np.min(cur_xyz[:,2]):.2f}, {np.max(cur_xyz[:,2]):.2f}]")
+            
+            depth_thres_low = np.percentile(cur_depth_values, depth_percentile[0])
+            depth_thres_high = np.percentile(cur_depth_values, depth_percentile[1])
+            print(f"  Depth percentile filter: [{depth_thres_low:.2f}, {depth_thres_high:.2f}] (percentiles {depth_percentile})")
+            
             confidence = np.median(confidence_values[class_member_mask])
-            print("[FILTER][instance {}] median confidence: {:.3f} (threshold: {:.3f})".format(int(k), confidence, confidence_threshold))
+            print(f"  Confidence: {confidence:.3f} (threshold: {confidence_threshold})")
+            
             if confidence > confidence_threshold:
                 valid_pts_mask = np.logical_and(
                     (cur_depth_values > depth_thres_low), (cur_depth_values < depth_thres_high))
-                print("valid_pts_mask", valid_pts_mask)
                 num_valid_pts = np.sum(valid_pts_mask)
+                print(f"  After depth filter: {num_valid_pts}/{num_instance_pts} points")
+                
                 if num_valid_pts > 0:
                     # Require minimum 5 points for reliable cuboid dimension computation
                     if num_valid_pts < 5:
-                        print("  -> REJECTED: insufficient points ({:d} < 5) for cuboid fitting".format(num_valid_pts))
+                        print(f"  -> REJECTED: insufficient points ({num_valid_pts} < 5)")
                         continue
                     xyzs_instance = cloud_mat_3d[class_member_mask, :]
                     xyzs = xyzs_instance[valid_pts_mask, :]
-                    print("xyzs", xyzs)
                     xyzs_valid = xyzs
                     xs = xyzs_valid[:, 0]
                     ys = xyzs_valid[:, 1]
@@ -274,29 +279,27 @@ def fit_cuboid_indoor(fit_cuboid_length_thresh, input_pc, depth_percentile, conf
                     y_max = np.max(ys)
                     x_min = np.min(xs)
                     y_min = np.min(ys)
-                    print("x_max", x_max)
-                    print("y_max", y_max)
-                    print("x_min", x_min)
-                    print("y_min", y_min)
                     xc = np.median(xs)
                     yc = np.median(ys)
                     length = x_max - x_min
                     width = y_max - y_min
-                    print("length", length)
-                    print("width", width)
+                    
+                    print(f"  Computed dimensions: length={length:.3f}m, width={width:.3f}m")
+                    print(f"  XY range after filter: x=[{x_min:.2f}, {x_max:.2f}], y=[{y_min:.2f}, {y_max:.2f}]")
+                    
                     if length > fit_cuboid_length_thresh:
-                        print("  -> PASSED initial length threshold ({:.3f} > {:.3f})".format(length, fit_cuboid_length_thresh))
+                        print(f"  -> PASSED initial length threshold ({length:.3f} > {fit_cuboid_length_thresh})")
                         xcs.append(xc)
                         ycs.append(yc)
                         lengths.append(length)
                         widths.append(width)
                         raw_points.append(xyzs_valid)
                     else:
-                        print("  -> REJECTED at initial cuboid fitting: length {:.3f} <= {:.3f}".format(length, fit_cuboid_length_thresh))
+                        print(f"  -> REJECTED: length {length:.3f} <= {fit_cuboid_length_thresh}")
                 else:
-                    print("  -> REJECTED: no valid points after depth percentile filter")
+                    print(f"  -> REJECTED: no valid points after depth percentile filter")
             else:
-                print("  -> REJECTED at confidence filter: {:.3f} <= {:.3f}".format(confidence, confidence_threshold))
+                print(f"  -> REJECTED: confidence {confidence:.3f} <= {confidence_threshold}")
 
     assert (len(xcs) == len(ycs) == len(lengths)
             == len(widths) == len(raw_points))
