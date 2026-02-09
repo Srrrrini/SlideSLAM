@@ -66,6 +66,9 @@
         <param name="~cx" value="375" />
         <param name="~cy" value="375" /> 
         <param name="~k_depth_scaling_factor" value="1000" />
+        
+        <!-- Z offset to align RGBD pointcloud with lidar (compensates for +0.3 in RegisterRGBD.cpp) -->
+        <param name="~z_offset" value="0.3" />
 
     </node>l
 

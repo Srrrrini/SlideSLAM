@@ -6,7 +6,7 @@
     <!-- REMOVED: odom_relay.py - odometry relay now handled by register_node -->
     <!-- register_node publishes to: /odom_ugv, /odom_uav, /spot/odom, /spot_Odometry -->
     
-    <!-- Bridge node to convert SLIDE_SLAM object poses to map_manager format -->
+    <!-- Bridge: SLIDE_SLAM poses → /semantic_objects_slide_slam (map_manager subscribes and merges into /semantic_objects) -->
     <node 
         pkg="object_modeller" 
         type="slide_slam_to_map_manager_bridge.py" 
@@ -14,6 +14,7 @@
         output="screen">
         <param name="source_frame" value="camera_init" />
         <param name="target_frame" value="map" />
+        <param name="output_topic" value="/semantic_objects_slide_slam" />
     </node>
     
     <!-- Detection adapter: converts SLIDE_SLAM segmented point cloud to vision_msgs/Detection2DArray -->

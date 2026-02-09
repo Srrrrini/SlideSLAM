@@ -3,10 +3,10 @@
 Bridge node to convert SLIDE_SLAM object poses to map_manager format.
 
 Subscribes to: /robot0/chair_cuboids (visualization_msgs/MarkerArray)
-Publishes to: /semantic_objects (map_manager/semanticObjArrayMsg)
+Publishes to: /semantic_objects_slide_slam (map_manager/semanticObjArrayMsg)
 
-This node converts RViz markers from SLIDE_SLAM to the semantic object format
-expected by map_manager, without modifying the SLIDE_SLAM pipeline.
+Map_manager's occMap subscribes to this topic and merges SLIDE_SLAM poses into
+its published /semantic_objects. Using a dedicated topic avoids topic clash.
 """
 
 import rospy
@@ -36,10 +36,12 @@ class SlideSlamToMapManagerBridge:
         # Source and target frames
         self.source_frame = rospy.get_param('~source_frame', 'camera_init')
         self.target_frame = rospy.get_param('~target_frame', 'map')
-        
-        # Publisher for map_manager
+        # Dedicated topic so map_manager subscribes here and is sole publisher of /semantic_objects
+        self.output_topic = rospy.get_param('~output_topic', '/semantic_objects_slide_slam')
+
+        # Publisher for map_manager (occMap subscribes to this and merges into /semantic_objects)
         self.semantic_obj_pub = rospy.Publisher(
-            '/semantic_objects',
+            self.output_topic,
             semanticObjArrayMsg,
             queue_size=10
         )
@@ -55,7 +57,7 @@ class SlideSlamToMapManagerBridge:
         
         rospy.loginfo("Bridge node initialized:")
         rospy.loginfo("  Subscribing to: /robot0/chair_cuboids")
-        rospy.loginfo("  Publishing to: /semantic_objects")
+        rospy.loginfo("  Publishing to: %s (map_manager subscribes and merges into /semantic_objects)", self.output_topic)
         rospy.loginfo("  Transforming from frame: %s to frame: %s", self.source_frame, self.target_frame)
         rospy.loginfo("  Class mappings: %s", self.class_to_label_id)
     
@@ -148,8 +150,8 @@ class SlideSlamToMapManagerBridge:
             self.semantic_obj_pub.publish(semantic_obj_array)
             rospy.loginfo_throttle(
                 2,
-                "Published %d semantic objects to /semantic_objects",
-                len(semantic_obj_array.semanticObjs)
+                "Published %d semantic objects to %s",
+                len(semantic_obj_array.semanticObjs), self.output_topic
             )
         else:
             rospy.logdebug("No valid semantic objects to publish")

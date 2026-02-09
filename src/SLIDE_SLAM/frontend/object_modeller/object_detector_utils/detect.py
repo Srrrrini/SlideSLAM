@@ -87,7 +87,9 @@ class sem_detection:
         # Use the actual values from your sensor calibration.
         self.W_img = 1280.0  # Total width of the panorama image
         self.f_c = 219.4734627    
-        self.y_c_0 = 375.0  
+        self.y_c_0 = 375.0
+        # Z offset to compensate for the +0.3 shift in RegisterRGBD.cpp forward projection
+        self.z_offset = rospy.get_param('~z_offset', 0.3)
         # -----------------------------------------------------------------
 
 
@@ -340,10 +342,10 @@ class sem_detection:
         azimuth = (u_flat * 2 * np.pi / self.W_img) - np.pi
 
         # Calculate X, Y, Z coordinates using the inverse cylindrical projection.
-        # Note: We calculate flattened 1D arrays first, like in your original code.
+        # z_offset compensates for the +0.3 shift in RegisterRGBD.cpp forward projection
         x = radial_distance * np.sin(azimuth)
-        z = radial_distance * np.cos(azimuth)  # Z is now dependent on the angle
-        y = 1*(v_flat - self.y_c_0) * radial_distance / self.f_c
+        z = radial_distance * np.cos(azimuth)
+        y = (v_flat - self.y_c_0) * radial_distance / self.f_c + self.z_offset
 
         # Reshape X, Y, Z back into the image dimensions
         x_pt = x.reshape(depth_img.shape)
