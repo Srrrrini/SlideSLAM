@@ -8,6 +8,7 @@
 */
 
 #include <robot.h>
+#include <viz/vizTools.h>
 
 Robot::Robot(const ros::NodeHandle &nh) : nh_(nh) {
 
@@ -18,6 +19,8 @@ Robot::Robot(const ros::NodeHandle &nh) : nh_(nh) {
   maxQueueSize_ = nh_.param("max_queue_size", 100);
   nh_.param<std::string>("robot_ns_prefix", robot_ns_prefix_, "robot");
   nh_.param<std::string>("odom_topic", odom_topic_, "odom");
+  // map_frame_id_ set from InputManager after params are loaded
+  map_frame_id_ = "camera_init";
 
   // initialization
   std::string node_name = ros::this_node::getName();
@@ -63,14 +66,21 @@ Robot::Robot(const ros::NodeHandle &nh) : nh_(nh) {
   ROS_INFO_STREAM("Robot Initialized! Robot # " << robot_actual_ID);
 }
 
-void Robot::RobotOdomCb(const nav_msgs::OdometryConstPtr &odom_msg) {
-  if (odomFreqFilter_ > 1) {
-    robotOdomCounter_++;
-    if (robotOdomCounter_ % odomFreqFilter_ != 0)
-      return;
-    robotOdomCounter_ = 0;
-  } 
+void Robot::publishHighFreqPoseAndOdom(const SE3& cur_vio_pose, const ros::Time& stamp) {
+  SE3 highFreqSLOAMPose;
+  if (robotOdomReceived_) {
+    SE3 latestRelativeMotionFactorGraph =
+        robotLatestOdom_.pose.inverse() * cur_vio_pose;
+    highFreqSLOAMPose = robotLastSLOAMKeyPose_ * latestRelativeMotionFactorGraph;
+  } else {
+    highFreqSLOAMPose = cur_vio_pose;
+  }
+  auto odom_msg = sloam::toRosOdom_(highFreqSLOAMPose, map_frame_id_, stamp);
+  pubRobotHighFreqSLOAMPose_.publish(sloam::makeROSPose(highFreqSLOAMPose, map_frame_id_, stamp));
+  pubRobotHighFreqSLOAMOdom_.publish(odom_msg);
+}
 
+void Robot::RobotOdomCb(const nav_msgs::OdometryConstPtr &odom_msg) {
   auto pose = odom_msg->pose.pose;
   ros::Time odomStamp = odom_msg->header.stamp;
   Quat rot(pose.orientation.w, pose.orientation.x, pose.orientation.y,
@@ -81,13 +91,22 @@ void Robot::RobotOdomCb(const nav_msgs::OdometryConstPtr &odom_msg) {
   odom.setQuaternion(rot);
   odom.translation() = pos;
 
+  // Publish high-freq pose/odom on every message so RViz position and trail update smoothly (like orange path)
+  publishHighFreqPoseAndOdom(odom, odomStamp);
+
+  if (odomFreqFilter_ > 1) {
+    robotOdomCounter_++;
+    if (robotOdomCounter_ % odomFreqFilter_ != 0)
+      return;
+    robotOdomCounter_ = 0;
+  }
 
   if (robotFirstOdom_ && pose.position.z < minSLOAMAltitude_) {
     ROS_INFO_STREAM_THROTTLE(
         5, "Robot is too low, will not call sloam, height threshold is "
                << minSLOAMAltitude_);
     return;
-  } 
+  }
 
   // if either robotObservationQueue_.empty() or robotOdomQueue_.empty(), we need to add odom factor
   bool is_first_run = false;

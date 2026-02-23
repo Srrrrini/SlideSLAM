@@ -111,6 +111,7 @@ InputManager::InputManager(ros::NodeHandle nh)
   nh_.param<std::string>("robot_frame_id", robot_frame_id_, "robot");
   nh_.param<std::string>("odom_frame_id", odom_frame_id_, "odom");
   nh_.param<std::string>("map_frame_id", map_frame_id_, "map");
+  robot.map_frame_id_ = map_frame_id_;
   std::string node_name = ros::this_node::getName();
   std::string idName = node_name + "/hostRobotID";
   nh_.param<int>(idName, hostRobotID_, 0);
@@ -174,6 +175,8 @@ void InputManager::RunInputNode(const ros::TimerEvent &e) {
 
   robot.pubRobotHighFreqSLOAMOdom_.publish(odom_msg);
   robot.pubRobotHighFreqSyncOdom_.publish(syncOdom);
+
+  sloam_->publishTrajectoryMarkersWithCurrentPose(odom_stamp, &highFreqSLOAMPose);
 
   // ADDING FACTORS
   // add odom factor only if the robot has moved enough

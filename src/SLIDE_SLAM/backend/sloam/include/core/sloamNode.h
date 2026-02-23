@@ -114,6 +114,13 @@ class SLOAMNode : public sloam {
   void intraLoopClosureThread_();
   void interLoopClosureThread_();
 
+ public:
+  /** Publish trajectory markers at high rate; append current_pose_for_host so the cyan line extends smoothly. */
+  void publishTrajectoryMarkersWithCurrentPose(ros::Time stamp,
+                                               const SE3* current_pose_for_host);
+
+ private:
+
   std::vector<Eigen::Vector3d> extractPosition(
       const std::vector<Cylinder> &candidateCylinderObs,
       const std::vector<Cube> &candidateCubeObs,

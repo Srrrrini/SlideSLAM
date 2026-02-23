@@ -14,6 +14,7 @@
 #include <cmath>
 
 #include <chrono>
+#include <mutex>
 
 namespace sloam {
 SLOAMNode::SLOAMNode(const ros::NodeHandle &nh)
@@ -274,6 +275,21 @@ void SLOAMNode::publishResults_(const SloamInput &sloamIn,
     pubObsTreeModel_.publish(obsTMarkerArray); 
 }
 
+void SLOAMNode::publishTrajectoryMarkersWithCurrentPose(ros::Time stamp,
+                                                        const SE3* current_pose_for_host) {
+  std::vector<SE3> trajectory_viz;
+  std::vector<size_t> pose_idx;
+  std::lock_guard<std::mutex> lock(factorGraphMtx_);
+  for (int temp_id = 0; temp_id < numRobots; temp_id++) {
+    factorGraph_.getAllPoses(trajectory_viz, pose_idx, temp_id);
+    if (temp_id == hostRobotID && current_pose_for_host != nullptr) {
+      trajectory_viz.push_back(*current_pose_for_host);
+    }
+    visualization_msgs::MarkerArray trajMarkers =
+        vizTrajectory(trajectory_viz, map_frame_id_, temp_id);
+    pubRobotTrajectory_[temp_id].publish(trajMarkers);
+  }
+}
 
 /**
  * @brief loop closure thread for intra-loop closure

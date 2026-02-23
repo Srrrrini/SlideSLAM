@@ -131,12 +131,14 @@ vizAllCentroidLandmarks(const std::vector<SE3> &allLandmarks,
     marker.header.stamp = ros::Time();
     marker.id = cylinderId;
     if (label_to_cls_mesh_path.find(cur_label) == label_to_cls_mesh_path.end()) {
+      // No mesh model: use SPHERE placeholder (label not in open_vocab_cls_all.yaml mesh list)
       marker.type = visualization_msgs::Marker::SPHERE;
       marker.action = visualization_msgs::Marker::ADD;
 
-      marker.scale.x = 0.5;
-      marker.scale.y = 0.5;
-      marker.scale.z = 0.5;
+      // Sphere size (0.75 m) - 50% larger than original 0.5 for RViz visibility
+      marker.scale.x = 0.75;
+      marker.scale.y = 0.75;
+      marker.scale.z = 0.75;
 
       marker.color.a = 0.7;
       marker.color.r = label_to_cls_color[cur_label][0];
@@ -144,13 +146,16 @@ vizAllCentroidLandmarks(const std::vector<SE3> &allLandmarks,
       marker.color.b = label_to_cls_color[cur_label][2];
 
     } else {
+      // Has mesh model: use MESH_RESOURCE (e.g. chair, table from open_vocab_cls_all.yaml)
       marker.type = visualization_msgs::Marker::MESH_RESOURCE;
       marker.action = visualization_msgs::Marker::ADD;
       marker.mesh_resource = label_to_cls_mesh_path[cur_label];
 
-      marker.scale.x = label_to_mesh_scale_factor[cur_label] * fixed_dim;
-      marker.scale.y = label_to_mesh_scale_factor[cur_label] * fixed_dim;
-      marker.scale.z = label_to_mesh_scale_factor[cur_label] * fixed_dim;
+      // obj_scale: 1.5 = 50% larger than base size for RViz visibility
+      double obj_scale = 1.5;
+      marker.scale.x = label_to_mesh_scale_factor[cur_label] * fixed_dim * obj_scale;
+      marker.scale.y = label_to_mesh_scale_factor[cur_label] * fixed_dim * obj_scale;
+      marker.scale.z = label_to_mesh_scale_factor[cur_label] * fixed_dim * obj_scale;
 
       marker.color.r = label_to_cls_color[cur_label][0];
       marker.color.g = label_to_cls_color[cur_label][1];
@@ -189,16 +194,16 @@ vizAllCentroidLandmarks(const std::vector<SE3> &allLandmarks,
     text_marker.action = visualization_msgs::Marker::ADD;
     text_marker.pose.position.x = obs_posit[0];
     text_marker.pose.position.y = obs_posit[1];
-    text_marker.pose.position.z = obs_posit[2] + 0.75;
+    text_marker.pose.position.z = obs_posit[2] + 1.2;
     text_marker.pose.orientation.x = 0.0;
     text_marker.pose.orientation.y = 0.0;
     text_marker.pose.orientation.z = 0.0;
     text_marker.pose.orientation.w = 1.0;
-    text_marker.scale.z = 0.5;
+    text_marker.scale.z = 1.2;
     text_marker.color.a = 1.0;
     text_marker.color.r = 0.0;
     text_marker.color.g = 0.0;
-    text_marker.color.b = 1.0;
+    text_marker.color.b = 0.0;
 
     // given the mapping above, we can directly use the label as the text
     text_marker.text = label_to_cls_name[cur_label];
@@ -235,13 +240,15 @@ visualization_msgs::MarkerArray vizTrajectory(const std::vector<SE3> &poses,
   line_strip.scale.x = 0.15;
 
   if (robot_id == 0) {
-    // Line strip is orange
-    line_strip.color.r = 1.0;
-    line_strip.color.g = 0.5;
+    // Line strip is cyan (distinct from Spot odom, LiDAR, RGBD)
+    line_strip.color.r = 0.0;
+    line_strip.color.g = 1.0;
+    line_strip.color.b = 1.0;
     line_strip.color.a = 0.7;
-    // Points are orange
-    points.color.r = 1.0;
-    points.color.g = 0.5;
+    // Points are cyan
+    points.color.r = 0.0;
+    points.color.g = 1.0;
+    points.color.b = 1.0;
     points.color.a = 1.0;
   } else if (robot_id == 1) {
     // Line strip is blue

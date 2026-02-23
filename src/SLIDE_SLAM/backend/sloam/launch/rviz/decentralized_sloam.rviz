@@ -64,6 +64,7 @@ Panels:
         - /robot61/MarkerArray8
         - /robot61/MarkerArray9
         - /Axes1
+        - /Spot Path (from bag)1
         - /PointCloud22
         - /PointCloud23
       Splitter Ratio: 0.39753738045692444
@@ -992,6 +993,30 @@ Visualization Manager:
       Radius: 0.10000000149011612
       Reference Frame: <Fixed Frame>
       Show Trail: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 255; 140; 0
+      Enabled: true
+      Head Diameter: 0
+      Head Length: 0
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.20000000298023224
+      Name: Spot Path (from bag)
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 140; 0
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.4000000059604645
+      Shaft Length: 0.4000000059604645
+      Topic: /spot_path
+      Unreliable: false
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true

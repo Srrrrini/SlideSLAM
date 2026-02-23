@@ -1,4 +1,7 @@
 <launch>
+    <!-- Spot odom -> Path in camera_init frame, aligned with FLIO trajectory -->
+    <node pkg="object_modeller" type="spot_odom_to_path.py" name="spot_odom_to_path" output="screen" />
+    
     <!-- Static transform: camera_init -> map (identity transform since they're both fixed world frames) -->
     <node pkg="tf2_ros" type="static_transform_publisher" name="camera_init_to_map_tf" 
           args="0 0 0 0 0 0 camera_init map" />

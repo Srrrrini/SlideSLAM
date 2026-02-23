@@ -93,7 +93,9 @@ class Robot {
   int robotId_;
   std::string robot_ns_prefix_;
   std::string odom_topic_;
+  std::string map_frame_id_;
 
+  void publishHighFreqPoseAndOdom(const SE3& cur_vio_pose, const ros::Time& stamp);
   void RobotOdomCb(const nav_msgs::OdometryConstPtr &odom_msg);
   void RobotTreePCCb(const sensor_msgs::PointCloud2ConstPtr &cloudMsg);
   void RobotGroundPCCb(const sensor_msgs::PointCloud2ConstPtr &cloudMsg);

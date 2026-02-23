@@ -9,7 +9,7 @@ sloam:
   ellipsoid_match_thresh: 0.75 # Default-0.75 ellipsoid data association threshold
   min_robot_altitude: -100 # minimum height for adding factors, should be set to negative if you want factors to be added always
   min_odom_distance: 0.5 # minimum distance between two odometry messages to be considered for processing
-  main_node_rate: 5.0 # rate at which the main node runs, should not be less than the desired keyframe rate (e.g. 1-5 Hz is usually good)
+  main_node_rate: 5.0 # rate at which the main node runs (keyframe/add factors); RViz pose/odom is published from odom callback at full rate for smooth display
   place_recognition_attempt_time_offset: 7.0 # (keep default unless you know what you are doing) time offset for place recognition attempts for different robot's nodes to avoid extra compute
   #-----------------------------------------------
   intra_robot_place_recognition_frequency: 0.05 # [intra-robot place recog is default turned off] frequency at which place recognition is run within a robot 
