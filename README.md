@@ -6,7 +6,7 @@ This repository is work built on top of the original SlideSLAM project:
 
 ## Citation
 
-This project builds on SlideSLAM. If you use this repository, please cite:
+This project builds on SlideSLAM. 
 
 Liu et al., *Slideslam: Sparse, lightweight, decentralized metric-semantic slam for multi-robot navigation*, arXiv preprint arXiv:2406.17249, 2024.
 

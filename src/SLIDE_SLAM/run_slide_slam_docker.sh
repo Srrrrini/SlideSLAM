@@ -28,11 +28,16 @@ source /opt/slideslam_docker_ws/devel/setup.bash
 echo "SlideSLAM workspace is built and sourced."
 exec bash'
 
-if docker ps -a --format "{{.Names}}" | rg -x "$CONTAINER_NAME" >/dev/null; then
+DOCKER_TTY_FLAGS=()
+if [[ -t 0 && -t 1 ]]; then
+  DOCKER_TTY_FLAGS=(-it)
+fi
+
+if docker ps -a --format "{{.Names}}" | awk -v target="$CONTAINER_NAME" '$0==target{found=1} END{exit(found?0:1)}'; then
   docker start "$CONTAINER_NAME" >/dev/null
-  docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_AND_SHELL_CMD"
+  docker exec "${DOCKER_TTY_FLAGS[@]}" "$CONTAINER_NAME" bash -lc "$BUILD_AND_SHELL_CMD"
 else
-  docker run -it \
+  docker run "${DOCKER_TTY_FLAGS[@]}" \
     --name "$CONTAINER_NAME" \
     --net host \
     --privileged \
