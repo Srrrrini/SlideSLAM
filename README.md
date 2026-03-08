@@ -6,7 +6,12 @@ This repository is work built on top of the original SlideSLAM project:
 
 ## Citation
 
-Original SlideSLAM paper:
+This project builds on SlideSLAM. If you use this repository, please cite:
+
+Liu et al., *Slideslam: Sparse, lightweight, decentralized metric-semantic slam for multi-robot navigation*, arXiv preprint arXiv:2406.17249, 2024.
+
+<details>
+<summary>BibTeX</summary>
 
 ```bibtex
 @article{liu2024slideslam,
@@ -16,6 +21,8 @@ Original SlideSLAM paper:
   year={2024}
 }
 ```
+
+</details>
 
 ## Quick Start
 
@@ -39,13 +46,7 @@ chmod +x src/SLIDE_SLAM/run_slide_slam_docker.sh
 ./src/SLIDE_SLAM/run_slide_slam_docker.sh
 ```
 
-The script opens a shell inside the container. In that shell, build and source the workspace:
-
-```bash
-cd /opt/slideslam_docker_ws
-catkin build -DCMAKE_BUILD_TYPE=Release
-source /opt/slideslam_docker_ws/devel/setup.bash
-```
+This script starts (or reuses) the Docker container, builds the workspace with `catkin build`, sources it, and then drops you into an interactive shell.
 
 For detailed usage and dataset/demo instructions, refer to:
 
