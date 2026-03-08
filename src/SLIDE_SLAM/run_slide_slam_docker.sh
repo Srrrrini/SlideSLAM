@@ -81,7 +81,7 @@ KEEPALIVE_CMD='while true; do sleep 3600; done'
 if docker ps -a --format "{{.Names}}" | awk -v target="$CONTAINER_NAME" '$0==target{found=1} END{exit(found?0:1)}'; then
   docker start "$CONTAINER_NAME" >/dev/null
   docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
-  docker exec -it "$CONTAINER_NAME" bash -lc "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash"
+  docker exec -it "$CONTAINER_NAME" bash -ic "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash -i"
 else
   docker run -d \
     --name "$CONTAINER_NAME" \
@@ -97,5 +97,5 @@ else
     bash -lc "$KEEPALIVE_CMD" >/dev/null
 
   docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
-  docker exec -it "$CONTAINER_NAME" bash -lc "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash"
+  docker exec -it "$CONTAINER_NAME" bash -ic "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash -i"
 fi
