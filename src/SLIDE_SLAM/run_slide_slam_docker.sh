@@ -69,19 +69,21 @@ if command -v xhost >/dev/null 2>&1; then
   xhost +local:root >/dev/null 2>&1 || true
 fi
 
-BUILD_AND_SHELL_CMD='set -e
+BUILD_CMD='set -e
 cd /opt/slideslam_docker_ws
 source /opt/ros/noetic/setup.bash
 catkin build -DCMAKE_BUILD_TYPE=Release
 source /opt/slideslam_docker_ws/devel/setup.bash
-echo "SlideSLAM workspace is built and sourced."
-exec bash'
+echo "SlideSLAM workspace is built and sourced."'
+
+KEEPALIVE_CMD='while true; do sleep 3600; done'
 
 if docker ps -a --format "{{.Names}}" | awk -v target="$CONTAINER_NAME" '$0==target{found=1} END{exit(found?0:1)}'; then
   docker start "$CONTAINER_NAME" >/dev/null
-  docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_AND_SHELL_CMD"
+  docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
+  docker exec -it "$CONTAINER_NAME" bash -lc "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash"
 else
-  docker run -it \
+  docker run -d \
     --name "$CONTAINER_NAME" \
     --net host \
     --privileged \
@@ -92,5 +94,8 @@ else
     --volume "$SlideSlamWs:/opt/slideslam_docker_ws" \
     --volume "$BAGS_DIR:/opt/bags" \
     "$IMAGE_NAME" \
-    bash -lc "$BUILD_AND_SHELL_CMD"
+    bash -lc "$KEEPALIVE_CMD" >/dev/null
+
+  docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
+  docker exec -it "$CONTAINER_NAME" bash -lc "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash"
 fi
