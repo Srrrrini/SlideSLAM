@@ -1,0 +1,3 @@
+[submodule "map_manager"]
+	path = map_manager
+	url = git@github.com:Srrrrini/map_manager.git
