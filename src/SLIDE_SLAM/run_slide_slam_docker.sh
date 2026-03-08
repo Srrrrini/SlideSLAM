@@ -29,7 +29,21 @@ if [[ ! -d "$SlideSlamWs/src/ouster_decoder/.git" ]]; then
 fi
 
 # Clear stale package cache to avoid ouster_ros CMake issues.
-rm -rf "$SlideSlamWs/build/ouster_ros" "$SlideSlamWs/devel/.private/ouster_ros" "$SlideSlamWs/logs/ouster_ros"
+cleanup_workspace_path() {
+  local target="$1"
+  rm -rf "$target" 2>/dev/null || true
+  if [[ -e "$target" ]]; then
+    # Root-owned artifacts from prior container runs; remove via container as root.
+    docker run --rm \
+      --volume "$SlideSlamWs:/opt/slideslam_docker_ws" \
+      "$IMAGE_NAME" \
+      bash -lc "rm -rf '/opt/slideslam_docker_ws/${target#$SlideSlamWs/}'"
+  fi
+}
+
+cleanup_workspace_path "$SlideSlamWs/build/ouster_ros"
+cleanup_workspace_path "$SlideSlamWs/devel/.private/ouster_ros"
+cleanup_workspace_path "$SlideSlamWs/logs/ouster_ros"
 
 # Allow RViz/X11 apps from container.
 if command -v xhost >/dev/null 2>&1; then
@@ -47,7 +61,7 @@ docker run -it \
     --workdir="/opt/slideslam_docker_ws" \
     --env="DISPLAY=${DISPLAY:-}" \
     --env="QT_X11_NO_MITSHM=1" \
-    --env="XAUTHORITY=$XAUTH" \
+    --env="XAUTHORITY=${XAUTH:-}" \
     --volume="$SlideSlamWs:/opt/slideslam_docker_ws" \
     --volume="$SlideSlamCodeDir:$SlideSlamCodeDir" \
     --volume="$BAGS_DIR:/opt/bags" \
