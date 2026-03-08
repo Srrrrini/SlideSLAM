@@ -7,6 +7,7 @@ BAGS_DIR="${BAGS_DIR:-$SlideSlamWs/bags}"                        # bags / data d
 CONTAINER_NAME="${CONTAINER_NAME:-slideslam_ros}"
 IMAGE_NAME="${IMAGE_NAME:-xurobotics/slide-slam:latest}"
 INSTALL_LIDAR_DEPS="${SLIDESLAM_INSTALL_LIDAR_DEPS:-1}"
+DEPS_CHANGED=0
 
 if [[ ! -d "$SlideSlamWs/src/SLIDE_SLAM" ]]; then
   echo "Expected repository at: $SlideSlamWs/src/SLIDE_SLAM"
@@ -20,19 +21,27 @@ ensure_repo_at_commit() {
   local target_dir="$1"
   local repo_url="$2"
   local repo_commit="$3"
+  local backup_dir
 
   if [[ -d "$target_dir/.git" ]]; then
+    # Ensure expected commit exists locally.
+    if ! git -C "$target_dir" checkout "$repo_commit" >/dev/null 2>&1; then
+      git -C "$target_dir" fetch --all --tags
+      git -C "$target_dir" checkout "$repo_commit"
+    fi
     return
   fi
 
-  if [[ -e "$target_dir" && ! -d "$target_dir/.git" ]]; then
-    echo "Skipping $target_dir (exists but is not a git repository)."
-    return
+  if [[ -e "$target_dir" ]]; then
+    backup_dir="${target_dir}.backup.$(date +%s)"
+    echo "Found non-git path at $target_dir. Moving to $backup_dir"
+    mv "$target_dir" "$backup_dir"
   fi
 
   echo "Installing missing dependency: $target_dir"
   git clone "$repo_url" "$target_dir"
   git -C "$target_dir" checkout "$repo_commit"
+  DEPS_CHANGED=1
 }
 
 if [[ "$INSTALL_LIDAR_DEPS" == "1" ]]; then
@@ -45,6 +54,14 @@ if [[ "$INSTALL_LIDAR_DEPS" == "1" ]]; then
     "$SlideSlamWs/src/ouster_decoder" \
     "https://github.com/KumarRobotics/ouster_decoder.git" \
     "d66b52d"
+fi
+
+if [[ "$DEPS_CHANGED" == "1" ]]; then
+  # Dependency layout changed; clear stale per-package build cache.
+  rm -rf \
+    "$SlideSlamWs/build/ouster_ros" \
+    "$SlideSlamWs/devel/.private/ouster_ros" \
+    "$SlideSlamWs/logs/ouster_ros"
 fi
 
 # Allow RViz/X11 apps from container.
