@@ -6,6 +6,7 @@ SlideSlamWs="${SLIDESLAM_WS:-$(cd "$SCRIPT_DIR/../.." && pwd)}"  # workspace roo
 BAGS_DIR="${BAGS_DIR:-$SlideSlamWs/bags}"                        # bags / data directory
 CONTAINER_NAME="${CONTAINER_NAME:-slideslam_ros}"
 IMAGE_NAME="${IMAGE_NAME:-xurobotics/slide-slam:latest}"
+INSTALL_LIDAR_DEPS="${SLIDESLAM_INSTALL_LIDAR_DEPS:-1}"
 
 if [[ ! -d "$SlideSlamWs/src/SLIDE_SLAM" ]]; then
   echo "Expected repository at: $SlideSlamWs/src/SLIDE_SLAM"
@@ -14,6 +15,37 @@ if [[ ! -d "$SlideSlamWs/src/SLIDE_SLAM" ]]; then
 fi
 
 mkdir -p "$BAGS_DIR"
+
+ensure_repo_at_commit() {
+  local target_dir="$1"
+  local repo_url="$2"
+  local repo_commit="$3"
+
+  if [[ -d "$target_dir/.git" ]]; then
+    return
+  fi
+
+  if [[ -e "$target_dir" && ! -d "$target_dir/.git" ]]; then
+    echo "Skipping $target_dir (exists but is not a git repository)."
+    return
+  fi
+
+  echo "Installing missing dependency: $target_dir"
+  git clone "$repo_url" "$target_dir"
+  git -C "$target_dir" checkout "$repo_commit"
+}
+
+if [[ "$INSTALL_LIDAR_DEPS" == "1" ]]; then
+  # Ensure packages required by run_flio_with_driver.launch are present.
+  ensure_repo_at_commit \
+    "$SlideSlamWs/src/ouster_example" \
+    "https://github.com/ouster-lidar/ouster_example.git" \
+    "43107a1"
+  ensure_repo_at_commit \
+    "$SlideSlamWs/src/ouster_decoder" \
+    "https://github.com/KumarRobotics/ouster_decoder.git" \
+    "d66b52d"
+fi
 
 # Allow RViz/X11 apps from container.
 if command -v xhost >/dev/null 2>&1; then
