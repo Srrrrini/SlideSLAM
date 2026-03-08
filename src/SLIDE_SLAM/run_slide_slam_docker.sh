@@ -78,11 +78,7 @@ echo "SlideSLAM workspace is built and sourced."'
 
 KEEPALIVE_CMD='while true; do sleep 3600; done'
 
-if docker ps -a --format "{{.Names}}" | awk -v target="$CONTAINER_NAME" '$0==target{found=1} END{exit(found?0:1)}'; then
-  docker start "$CONTAINER_NAME" >/dev/null
-  docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
-  docker exec -it "$CONTAINER_NAME" bash -ic "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash -i"
-else
+create_container() {
   docker run -d \
     --name "$CONTAINER_NAME" \
     --net host \
@@ -95,7 +91,19 @@ else
     --volume "$BAGS_DIR:/opt/bags" \
     "$IMAGE_NAME" \
     bash -lc "$KEEPALIVE_CMD" >/dev/null
+}
 
-  docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
-  docker exec -it "$CONTAINER_NAME" bash -ic "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash -i"
+if docker ps -a --format "{{.Names}}" | awk -v target="$CONTAINER_NAME" '$0==target{found=1} END{exit(found?0:1)}'; then
+  docker start "$CONTAINER_NAME" >/dev/null || true
+else
+  create_container
 fi
+
+# Old containers may have an entrypoint/cmd that exits immediately on start.
+if ! docker ps --format "{{.Names}}" | awk -v target="$CONTAINER_NAME" '$0==target{found=1} END{exit(found?0:1)}'; then
+  docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+  create_container
+fi
+
+docker exec -it "$CONTAINER_NAME" bash -lc "$BUILD_CMD"
+docker exec -it "$CONTAINER_NAME" bash -ic "source /opt/slideslam_docker_ws/devel/setup.bash; exec bash -i"
