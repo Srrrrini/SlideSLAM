@@ -48,6 +48,13 @@ chmod +x src/SLIDE_SLAM/run_slide_slam_docker.sh
 
 This script starts (or reuses) the Docker container, builds the workspace with `catkin build`, sources it, and then drops you into an interactive shell.
 
+After entering the Docker shell, make sure the bag `824indoor_sync.bag` exists in `bags/indoor` (for example, check with `ls bags/indoor/824indoor_sync.bag`), then run:
+
+```bash
+roscd multi_robot_utils_launch/script/
+./tmux_single_indoor_robot.sh
+```
+
 For detailed usage and dataset/demo instructions, refer to:
 
 - `src/SLIDE_SLAM/README.md`
