@@ -31,3 +31,7 @@ add_definitions(${PCL_DEFINITIONS})
 add_executable(${PROJECT_NAME}_cylinder src/cylinder_modeller.cpp)
 target_link_libraries(${PROJECT_NAME}_cylinder ${catkin_LIBRARIES} ${PCL_LIBRARIES} -ldw)
 target_include_directories(${PROJECT_NAME}_cylinder PUBLIC include ${PCL_INCLUDE_DIRS})
+
+# Use the detector that publishes detections_image (object_detector_utils has it; script/detect.py does not)
+catkin_install_python(PROGRAMS object_detector_utils/detect.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
