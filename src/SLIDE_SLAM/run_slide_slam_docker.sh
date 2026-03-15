@@ -28,6 +28,12 @@ if [[ ! -d "$SlideSlamWs/src/ouster_decoder/.git" ]]; then
   git -C "$SlideSlamWs/src/ouster_decoder" checkout d66b52d
 fi
 
+# vision_msgs from source (required for detection_adapter; avoids broken apt in container)
+if [[ ! -d "$SlideSlamWs/src/vision_msgs/.git" ]]; then
+  rm -rf "$SlideSlamWs/src/vision_msgs"
+  git clone --depth 1 -b noetic-devel https://github.com/ros-perception/vision_msgs.git "$SlideSlamWs/src/vision_msgs"
+fi
+
 # Clear stale package cache to avoid ouster_ros CMake issues.
 cleanup_workspace_path() {
   local target="$1"
@@ -45,10 +51,8 @@ cleanup_workspace_path "$SlideSlamWs/build/ouster_ros"
 cleanup_workspace_path "$SlideSlamWs/devel/.private/ouster_ros"
 cleanup_workspace_path "$SlideSlamWs/logs/ouster_ros"
 
-# Allow RViz/X11 apps from container.
-if command -v xhost >/dev/null 2>&1; then
-  xhost +local:root >/dev/null 2>&1 || true
-fi
+export DISPLAY="${DISPLAY:-:0}"
+xhost +local:root 2>/dev/null || true
 
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
@@ -57,18 +61,24 @@ if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
   docker pull "$IMAGE_NAME"
 fi
 
-xhost +local:root # for the lazy and reckless
+ENTRY_CMD='set -e
+source /opt/ros/noetic/setup.bash
+cd /opt/slideslam_docker_ws
+catkin build -DCMAKE_BUILD_TYPE=Release
+source /opt/slideslam_docker_ws/devel/setup.bash
+echo "SlideSLAM workspace is built and sourced."
+exec bash'
 docker run -it \
     --name="$CONTAINER_NAME" \
     --net="host" \
     --privileged \
     --gpus="all" \
     --workdir="/opt/slideslam_docker_ws" \
-    --env="DISPLAY=${DISPLAY:-}" \
+    --env="DISPLAY=$DISPLAY" \
     --env="QT_X11_NO_MITSHM=1" \
-    --env="XAUTHORITY=${XAUTH:-}" \
+    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     --volume="$SlideSlamWs:/opt/slideslam_docker_ws" \
     --volume="$SlideSlamCodeDir:$SlideSlamCodeDir" \
     --volume="$BAGS_DIR:/opt/bags" \
     "$IMAGE_NAME" \
-    bash -lc "set -e; source /opt/ros/noetic/setup.bash; cd /opt/slideslam_docker_ws; catkin build -DCMAKE_BUILD_TYPE=Release; source /opt/slideslam_docker_ws/devel/setup.bash; echo 'SlideSLAM workspace is built and sourced.'; exec bash"
+    bash -lc "$ENTRY_CMD"

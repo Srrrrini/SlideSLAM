@@ -8,15 +8,9 @@ BAG_PLAY_RATE=1
 # BAG_DIR='/home/sam/bags/vems-slam-bags/all_slide_slam_public_demos/indoor'
 BAG_DIR='/opt/bags/indoor'
 
-CURRENT_DISPLAY=${DISPLAY}
-if [ -z ${DISPLAY} ];
-then
-  echo "DISPLAY is not set"
-  CURRENT_DISPLAY=:0
-fi
+[ -z "${DISPLAY:-}" ] && export DISPLAY=:0
 
-if [ -z ${TMUX} ];
-then
+if [ -z "${TMUX:-}" ]; then
   TMUX= tmux new-session -s $SESSION_NAME -d
   echo "Starting new session."
 else
@@ -86,7 +80,7 @@ tmux pipe-pane -t $SESSION_NAME:2.2 -o "cat > $LOG_DIR/pane_2_2.log"
 
 # Launch 3 processes
 # Rosbag: spot/odom remapped to /spot_odom -> spot_odom_to_path publishes /spot_path (aligned with FLIO)
-tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 115 --topics /spot_image /spot/odom /ouster/imu /ouster/points /spot/odom:=/spot_odom ouster/imu:=/os_node/imu ouster/points:=/os_node/points" Enter
+tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 0 --topics /spot_image /spot/odom /ouster/imu /ouster/points /spot/odom:=/spot_odom ouster/imu:=/os_node/imu ouster/points:=/os_node/points" Enter
 # tmux send-keys -t $SESSION_NAME:2.0 "$SETUP_ROS_STRING; sleep 2; cd $BAG_DIR; rosbag play 824indoor_sync.bag --clock -r $BAG_PLAY_RATE -s 105 --topics /spot/odom /ouster/points /spot_image /spot/odom:=/Odometry /ouster/points:=/os_node/points" Enter
 
 # tmux send-keys -t $SESSION_NAME:2.1 "$SETUP_ROS_STRING; sleep 2; roslaunch sloam single_robot_sloam_test_LiDAR.launch enable_rviz:=true" Enter
@@ -133,12 +127,6 @@ echo "=========================================="
 
 
 
-""'
-
-roscd multi_robot_utils_launch/script
-./tmux_single_indoor_robot.sh
-
-""'
 
 
 
