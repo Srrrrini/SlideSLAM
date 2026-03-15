@@ -6,7 +6,7 @@ SlideSlamWs="${SLIDESLAM_WS:-$(cd "$SCRIPT_DIR/../.." && pwd)}"  # workspace roo
 SlideSlamCodeDir="${SLIDESLAM_CODE_DIR:-$SlideSlamWs/src/SLIDE_SLAM}"
 BAGS_DIR="${BAGS_DIR:-$SlideSlamWs/bags}"                        # bags / data directory
 CONTAINER_NAME="slideslam_ros"
-IMAGE_NAME="xurobotics/slide-slam:latest"
+IMAGE_NAME="srrrrini/slide_slam:latest"
 
 if [[ ! -d "$SlideSlamCodeDir" ]]; then
   echo "Expected repository at: $SlideSlamWs/src/SLIDE_SLAM"
@@ -51,6 +51,11 @@ if command -v xhost >/dev/null 2>&1; then
 fi
 
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+
+if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+  echo "Docker image not found locally. Pulling: $IMAGE_NAME"
+  docker pull "$IMAGE_NAME"
+fi
 
 xhost +local:root # for the lazy and reckless
 docker run -it \
