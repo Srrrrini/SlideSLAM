@@ -53,6 +53,13 @@ cleanup_workspace_path "$SlideSlamWs/logs/ouster_ros"
 
 export DISPLAY="${DISPLAY:-:0}"
 xhost +local:root 2>/dev/null || true
+# Allow container to use SSH X11 forwarding (localhost:10.0) when present
+XAUTH="${XAUTHORITY:-$HOME/.Xauthority}"
+if [[ -f "$XAUTH" ]]; then
+  DOCKER_XAUTH_ARGS=(--volume="$XAUTH:/root/.Xauthority:ro" --env="XAUTHORITY=/root/.Xauthority")
+else
+  DOCKER_XAUTH_ARGS=()
+fi
 
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
@@ -77,6 +84,7 @@ docker run -it \
     --env="DISPLAY=$DISPLAY" \
     --env="QT_X11_NO_MITSHM=1" \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    "${DOCKER_XAUTH_ARGS[@]}" \
     --volume="$SlideSlamWs:/opt/slideslam_docker_ws" \
     --volume="$SlideSlamCodeDir:$SlideSlamCodeDir" \
     --volume="$BAGS_DIR:/opt/bags" \
