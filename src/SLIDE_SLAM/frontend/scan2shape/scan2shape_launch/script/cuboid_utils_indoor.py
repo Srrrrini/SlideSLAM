@@ -146,13 +146,23 @@ def cuboid_detection_indoor(process_cloud_node_object, instances_xyzl, instance_
             min_z = np.min(z_projections)
             height = max_z - min_z
 
-            # Calculate the centroid found based on body frame coords
-            x_centroid_pca = 0.5*(max_x + min_x)
-            y_centroid_pca = 0.5*(max_y + min_y)
-            z_centroid_pca = 0.5*(max_z + min_z)
-            centroid_pca = np.array(
-                [x_centroid_pca, y_centroid_pca, z_centroid_pca])
-            centroid_world = r_pca_world_raw .as_matrix() @ centroid_pca
+            # --- OLD: PCA bounding-box midpoint centroid ---
+            # The midpoint of the PCA bounding box was used as centroid, but
+            # this gets pulled away from the actual point cloud by outliers
+            # and asymmetric one-sided observations, causing STL meshes to
+            # appear behind the detected (red) point cloud.
+            # x_centroid_pca = 0.5*(max_x + min_x)
+            # y_centroid_pca = 0.5*(max_y + min_y)
+            # z_centroid_pca = 0.5*(max_z + min_z)
+            # centroid_pca = np.array(
+            #     [x_centroid_pca, y_centroid_pca, z_centroid_pca])
+            # centroid_world = r_pca_world_raw .as_matrix() @ centroid_pca
+
+            # --- NEW: Median of accumulated points ---
+            # Use median of accumulated points as centroid — this matches the
+            # position of the visible (red) segmented point cloud, avoiding
+            # bias from PCA bounding-box midpoint.
+            centroid_world = np.median(instance_xyz, axis=0)
 
             r_pca_world = R.from_rotvec(yaw * z)
             orient_world = r_pca_world.as_quat()
