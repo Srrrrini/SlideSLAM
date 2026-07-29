@@ -29,7 +29,7 @@ sloam:
     search_yaw_step_size_degrees: 15.0 # 5.0 for indoor # default 2.0 # data association search step size for yaw angle
     match_threshold_position: 0.75 # forest / parking lot: 0.5 # indoor: 0.75 or 1.0 # default 0.5 # threshold for position matching (XY distance)
     compute_budget_sec: 10.0 # default 5.0 # compute budget in seconds for place recognition algorithm, it will return the best estimate within this time
-    min_num_inliers: 8 # forest / parking lot: 15 # 5 for indoor # default 10 # minimum number of inliers to consider a valid place recognition
+    min_num_inliers: 2 # forest / parking lot: 15 # 5 for indoor # default 10 # minimum number of inliers to consider a valid place recognition
     min_num_map_objects_to_start: 5 # 10 for indoor # 30 for outdoor parking lot # 100 for forests # minimum number of objects in a map to start SlideMatch place recognition attempt
     #-----------------------------------------------
     dilation_factor: 1.2 # place recognition search region along XY will be dilation_factor_ * max(map_1, map_2)
